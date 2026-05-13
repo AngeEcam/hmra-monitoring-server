@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HMRA Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── Reset & tokens ─────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #080c10;
+  --surface:   #0d1219;
+  --surface2:  #111820;
+  --border:    #1e2d3d;
+  --border2:   #253545;
+  --text:      #c8d8e8;
+  --muted:     #4a6070;
+  --dim:       #2a3a4a;
+
+  --blue:      #3a9fd8;
+  --blue-dim:  #1a3a50;
+  --green:     #2ecc71;
+  --green-dim: #0a2a18;
+  --red:       #e74c3c;
+  --red-dim:   #2a0a0a;
+  --amber:     #f39c12;
+  --amber-dim: #2a1a00;
+
+  --r-sm:   10px;
+  --r-md:   14px;
+  --r-lg:   18px;
+  --r-pill: 999px;
+
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-ui:   'Barlow', sans-serif;
+  --font-cond: 'Barlow Condensed', sans-serif;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,.03) 2px,
+    rgba(0,0,0,.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Header ─────────────────────────────── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 34px;
+  height: 34px;
+  background: var(--blue-dim);
+  border: 1px solid var(--blue);
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: .85rem;
+  color: var(--blue);
+  letter-spacing: .05em;
+}
+
+.logo-text {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: .12em;
+  color: #fff;
+  text-transform: uppercase;
+}
+.logo-text span { color: var(--blue); }
+
+.header-tag {
+  font-family: var(--font-mono);
+  font-size: .65rem;
+  color: var(--muted);
+  border: 1px solid var(--border2);
+  padding: 2px 10px;
+  letter-spacing: .08em;
+  border-radius: var(--r-pill);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.live-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--green-dim);
+  border: 1px solid #1a5c38;
+  border-radius: var(--r-pill);
+  padding: 4px 13px;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  color: var(--green);
+}
+
+.live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+#last-update {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  color: var(--green);
+}
+
+/* ── Layout ─────────────────────────────── */
+main {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px 28px;
+}
+
+/* ── Section titles ─────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-family: var(--font-cond);
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title::before {
+  content: '';
+  display: block;
+  width: 3px; height: 14px;
+  background: var(--blue);
+  border-radius: 2px;
+}
+
+/* ── Offline banner ─────────────────────── */
+#offline-banner {
+  display: none;
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  color: var(--red);
+  letter-spacing: .04em;
+  border-radius: var(--r-md);
+}
+
+/* ── Cards grid ─────────────────────────── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition: border-color .2s, background .2s;
+}
+
+/* Top accent bar */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--blue);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  transition: background .2s;
+}
+
+.card.ok::before    { background: var(--green); }
+.card.alarm         { border-color: var(--red); background: var(--red-dim); }
+.card.alarm::before { background: var(--red); }
+.card.offline       { opacity: .6; }
+.card.offline::before { background: var(--dim); }
+
+.card-label {
+  font-family: var(--font-cond);
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.card-temp {
+  font-family: var(--font-mono);
+  font-size: 2.2rem;
+  font-weight: 400;
+  color: #fff;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.card-temp.dim { color: var(--dim); }
+.card-temp sup { font-size: 1rem; color: var(--muted); }
+
+.card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.card-meta-row {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+}
+.card-meta-val { color: var(--text); }
+
+.card-status {
+  position: absolute;
+  top: 14px; right: 14px;
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  letter-spacing: .1em;
+  padding: 2px 9px;
+  border: 1px solid;
+  border-radius: var(--r-pill);
+}
+.card-status.ok      { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+.card-status.alarm   { color: var(--red);   border-color: var(--red);   background: var(--red-dim); }
+.card-status.offline { color: var(--dim);   border-color: var(--dim); }
+
+.card-age {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  color: var(--dim);
+}
+.card-age.stale { color: var(--red); }
+
+/* ── Period selector ─────────────────────── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 3px;
+}
+.controls label {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  color: var(--muted);
+  letter-spacing: .06em;
+  padding: 0 8px;
+}
+.period-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 14px;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: all .15s;
+}
+.period-tab.active {
+  background: var(--blue-dim);
+  color: var(--blue);
+  border: 1px solid var(--blue);
+}
+
+/* ── Sensor chart blocks ─────────────────── */
+.sensor-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.sensor-block.offline { opacity: .55; }
+
+.sensor-block-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.sensor-block-name {
+  font-family: var(--font-cond);
+  font-size: .85rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.sid-tag {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  color: var(--blue);
+  border: 1px solid var(--blue-dim);
+  padding: 1px 9px;
+  letter-spacing: .06em;
+  border-radius: var(--r-pill);
+}
+.offline-tag {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  color: var(--muted);
+  border: 1px solid var(--dim);
+  padding: 1px 9px;
+  border-radius: var(--r-pill);
+}
+
+.charts-row {
+  display: grid;
+  gap: 0;
+}
+
+.chart-panel {
+  padding: 16px 18px;
+  border-right: 1px solid var(--border);
+}
+.chart-panel:last-child { border-right: none; }
+
+.chart-param-label {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.chart-container { position: relative; height: 140px; }
+
+/* ── Alerts table ────────────────────────── */
+.alerts-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: 28px;
+  overflow: hidden;
+}
+
+.alerts-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.btn-ack-all {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .06em;
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  background: var(--amber-dim);
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: all .2s;
+  text-transform: uppercase;
+  border-radius: var(--r-pill);
+}
+.btn-ack-all:hover {
+  background: var(--amber);
+  color: #000;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .78rem;
+}
+th {
+  text-align: left;
+  padding: 9px 14px;
+  font-family: var(--font-cond);
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: .72rem;
+}
+tr.acked td { opacity: .4; }
+tr:hover td { background: var(--surface2); }
+
+.val-alarm { color: var(--red); font-weight: bold; }
+.status-active {
+  color: var(--red);
+  font-size: .65rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.status-active::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+  display: inline-block;
+  animation: pulse 1.5s infinite;
+}
+.status-acked { color: var(--green); font-size: .65rem; }
+
+.btn-ack {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  color: var(--muted);
+  border: 1px solid var(--border2);
+  background: transparent;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all .2s;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  border-radius: var(--r-pill);
+}
+.btn-ack:hover {
+  color: var(--green);
+  border-color: var(--green);
+  background: var(--green-dim);
+}
+
+.no-data {
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  color: var(--dim);
+  text-align: center;
+  padding: 28px;
+  letter-spacing: .06em;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">
+      <div class="logo-icon">HM</div>
+      <div class="logo-text">🏥 <span>HMRA</span> Monitor</div>
+    </div>
+    <div class="header-tag">ENV MONITORING v1.0</div>
+  </div>
+  <div class="header-right">
+    <div class="live-pill">
+      <div class="live-dot"></div>
+      En direct · <span id="last-update">—</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div id="offline-banner">⚠ CONNEXION INTERROMPUE — Affichage des dernières valeurs connues</div>
+
+  <!-- Cards -->
+  <div class="section-header">
+    <div class="section-title">État des capteurs</div>
+  </div>
+  <div class="cards-grid" id="cards"></div>
+
+  <!-- Charts -->
+  <div class="section-header" style="margin-top:8px">
+    <div class="section-title">Historique</div>
+    <div class="controls">
+      <label>PÉRIODE</label>
+      <button class="period-tab" onclick="setPeriod(1,this)">1 h</button>
+      <button class="period-tab" onclick="setPeriod(6,this)">6 h</button>
+      <button class="period-tab active" onclick="setPeriod(24,this)">24 h</button>
+    </div>
+  </div>
+  <div id="sensors-charts"></div>
+
+  <!-- Alerts -->
+  <div class="section-header">
+    <div class="section-title">Historique alarmes</div>
+  </div>
+  <div class="alerts-block">
+    <div class="alerts-block-header">
+      <span style="font-family:var(--font-mono);font-size:.7rem;color:var(--muted);letter-spacing:.06em">ALERT LOG</span>
+      <button class="btn-ack-all" onclick="acknowledgeAll()">✓ Acquitter tout</button>
+    </div>
+    <div id="alerts-body"></div>
+  </div>
+
+</main>
+
+<script>
+const SENSORS = {
+  1: { name: "STHP01A",         params: ["temp_c","hum_rh","pres_hpa"] },
+  2: { name: "XYMD04 RS485",    params: ["temp_c","hum_rh"] },
+  3: { name: "PT100 Canal 1",   params: ["temp_c"] },
+  4: { name: "PT100 Canal 2",   params: ["temp_c"] },
+  5: { name: "XYMD04 RS485 #2", params: ["temp_c","hum_rh"] },
+};
+const PARAM_LABELS = {
+  temp_c:   "TEMPÉRATURE (°C)",
+  hum_rh:   "HUMIDITÉ (%RH)",
+  pres_hpa: "PRESSION (hPa)",
+};
+const PARAM_COLORS = {
+  temp_c:   "#3a9fd8",
+  hum_rh:   "#2ecc71",
+  pres_hpa: "#f39c12",
+};
+
+let charts = {};
+let currentPeriod = 24;
+
+function fmt(v, u) { return v == null ? "—" : v.toFixed(1) + " " + u; }
+function fmtAge(s) {
+  if (s < 60)   return `${s}s`;
+  if (s < 3600) return `${Math.round(s/60)} min`;
+  return `${Math.round(s/3600)} h`;
+}
+function timeLabel(iso) {
+  const d = new Date(iso);
+  return d.getHours().toString().padStart(2,"0") + ":" +
+         d.getMinutes().toString().padStart(2,"0");
+}
+
+function setPeriod(h, btn) {
+  currentPeriod = h;
+  document.querySelectorAll(".period-tab").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  loadAllCharts();
+}
+
+// ── Cards ────────────────────────────────────
+async function loadCards() {
+  const res   = await fetch("/stats");
+  const stats = await res.json();
+
+  const anyOffline = stats.sensors.some(s => s.offline);
+  document.getElementById("offline-banner").style.display = anyOffline ? "block" : "none";
+
+  const grid = document.getElementById("cards");
+  grid.innerHTML = "";
+
+  for (const s of stats.sensors) {
+    const cfg     = SENSORS[s.sid] || { name: "SID " + s.sid };
+    const offline = s.offline;
+    const alarm   = !offline && s.has_alarm;
+
+    let statusClass, statusLabel, cardClass;
+    if (offline)     { statusClass = "offline"; statusLabel = "OFFLINE"; cardClass = "offline"; }
+    else if (alarm)  { statusClass = "alarm";   statusLabel = "ALARME";  cardClass = "alarm";   }
+    else             { statusClass = "ok";       statusLabel = "OK";      cardClass = "ok";      }
+
+    let metaRows = "";
+    if (s.hum_rh   != null) metaRows += `<div class="card-meta-row"><span>HUM</span><span class="card-meta-val">${fmt(s.hum_rh,"%RH")}</span></div>`;
+    if (s.pres_hpa != null) metaRows += `<div class="card-meta-row"><span>PRES</span><span class="card-meta-val">${fmt(s.pres_hpa,"hPa")}</span></div>`;
+
+    grid.innerHTML += `
+      <div class="card ${cardClass}">
+        <div class="card-status ${statusClass}">${statusLabel}</div>
+        <div class="card-label">${cfg.name}</div>
+        <div class="card-temp ${offline ? "dim" : ""}">
+          ${s.temp_c != null ? s.temp_c.toFixed(1) : "—"}<sup>°C</sup>
+        </div>
+        ${metaRows ? `<div class="card-meta">${metaRows}</div>` : ""}
+        <div class="card-age ${offline ? "stale" : ""}">
+          ${offline ? "⚠ " : ""}${fmtAge(s.age_seconds)} ago
+        </div>
+      </div>`;
+  }
+  document.getElementById("last-update").textContent = new Date().toLocaleTimeString("fr-BE");
+}
+
+// ── Charts ───────────────────────────────────
+async function loadAllCharts() {
+  for (const c of Object.values(charts)) c.destroy();
+  charts = {};
+  document.getElementById("sensors-charts").innerHTML = "";
+
+  const statsRes   = await fetch("/stats");
+  const stats      = await statsRes.json();
+  const offlineSids = new Set(stats.sensors.filter(s => s.offline).map(s => s.sid));
+
+  for (const [sidStr, cfg] of Object.entries(SENSORS)) {
+    const sid = parseInt(sidStr);
+    const res = await fetch(`/history/${sid}?hours=${currentPeriod}`);
+    const j   = await res.json();
+    if (!j.count) continue;
+
+    const isOffline = offlineSids.has(sid);
+    const ncols     = cfg.params.length;
+
+    const panelsHtml = cfg.params.map(p => `
+      <div class="chart-panel">
+        <div class="chart-param-label">${PARAM_LABELS[p]}</div>
+        <div class="chart-container"><canvas id="c-${sid}-${p}"></canvas></div>
+      </div>`).join("");
+
+    document.getElementById("sensors-charts").innerHTML += `
+      <div class="sensor-block ${isOffline ? "offline" : ""}">
+        <div class="sensor-block-header">
+          <div class="sensor-block-name">${cfg.name}</div>
+          <span class="sid-tag">SID ${sid}</span>
+          ${isOffline ? '<span class="offline-tag">HORS LIGNE</span>' : ""}
+        </div>
+        <div class="charts-row" style="grid-template-columns:repeat(${ncols},1fr)">
+          ${panelsHtml}
+        </div>
+      </div>`;
+  }
+
+  await new Promise(r => requestAnimationFrame(r));
+  await new Promise(r => setTimeout(r, 30));
+
+  for (const [sidStr, cfg] of Object.entries(SENSORS)) {
+    const sid = parseInt(sidStr);
+    const res = await fetch(`/history/${sid}?hours=${currentPeriod}`);
+    const j   = await res.json();
+    if (!j.count) continue;
+
+    const labels    = j.data.map(r => timeLabel(r.received_at));
+    const isOffline = offlineSids.has(sid);
+
+    for (const param of cfg.params) {
+      const canvas = document.getElementById(`c-${sid}-${param}`);
+      if (!canvas) continue;
+      const color = isOffline ? "#2a3a4a" : PARAM_COLORS[param];
+      charts[`${sid}-${param}`] = new Chart(canvas.getContext("2d"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            data: j.data.map(r => r[param]),
+            borderColor: color,
+            backgroundColor: color + "18",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            tension: 0.3,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: { legend: { display: false }, tooltip: {
+            backgroundColor: "#0d1219",
+            borderColor: "#1e2d3d",
+            borderWidth: 1,
+            titleColor: "#4a6070",
+            bodyColor: "#c8d8e8",
+            cornerRadius: 8,
+            titleFont: { family: "'Share Tech Mono'" },
+            bodyFont:  { family: "'Share Tech Mono'" },
+          }},
+          scales: {
+            x: { ticks: { color: "#2a3a4a", maxTicksLimit: 6, font: { family: "'Share Tech Mono'", size: 10 } }, grid: { color: "#0f1820" } },
+            y: { ticks: { color: "#2a3a4a", font: { family: "'Share Tech Mono'", size: 10 } }, grid: { color: "#0f1820" } },
+          }
+        }
+      });
+    }
+  }
+}
+
+// ── Alerts ───────────────────────────────────
+async function loadAlerts() {
+  const res  = await fetch("/alerts?limit=40");
+  const json = await res.json();
+  const cont = document.getElementById("alerts-body");
+
+  if (!json.alerts.length) {
+    cont.innerHTML = '<div class="no-data">// AUCUNE ALARME ENREGISTRÉE</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr>
+    <th>Horodatage</th><th>Capteur</th><th>Paramètre</th>
+    <th>Valeur</th><th>Seuil</th><th>Statut</th><th></th>
+  </tr></thead><tbody>`;
+
+  for (const a of json.alerts) {
+    const t       = new Date(a.triggered_at).toLocaleString("fr-BE");
+    const name    = (SENSORS[a.sid] || { name: "sid " + a.sid }).name;
+    const isAcked = a.acknowledged === 1;
+    const ackedAt = isAcked ? new Date(a.acknowledged_at).toLocaleTimeString("fr-BE") : "";
+
+    html += `<tr class="${isAcked ? "acked" : ""}">
+      <td>${t}</td>
+      <td>${name}</td>
+      <td>${a.param}</td>
+      <td class="${isAcked ? "" : "val-alarm"}">${a.value.toFixed(1)}</td>
+      <td>${a.threshold}</td>
+      <td>${isAcked
+        ? `<span class="status-acked">✓ ${ackedAt}</span>`
+        : `<span class="status-active">ACTIVE</span>`
+      }</td>
+      <td>${!isAcked
+        ? `<button class="btn-ack" onclick="ackOne(${a.id})">ACK</button>`
+        : ""
+      }</td>
+    </tr>`;
+  }
+  cont.innerHTML = html + "</tbody></table>";
+}
+
+async function ackOne(id) {
+  await fetch(`/alerts/${id}/acknowledge`, { method: "POST" });
+  loadCards(); loadAlerts();
+}
+async function acknowledgeAll() {
+  await fetch("/alerts/acknowledge-all", { method: "POST" });
+  loadCards(); loadAlerts();
+}
+
+// ── Init ─────────────────────────────────────
+async function refresh() { await loadCards(); await loadAlerts(); }
+
+loadCards();
+loadAllCharts();
+loadAlerts();
+setInterval(refresh, 10000);
+setInterval(loadAllCharts, 60000);
+</script>
+</body>
+</html>
