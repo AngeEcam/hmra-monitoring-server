@@ -12,12 +12,15 @@ import os
 import json
 from datetime import datetime
 
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-from config import PORT, HOST, SENSOR_NAMES, OFFLINE_THRESHOLD_S
+from config import (
+    PORT, HOST, SENSOR_NAMES, OFFLINE_THRESHOLD_S,
+    UNIT_TYPES, SERVICES_UTILISATION, SERVICES_RESPONSABLE,
+)
 from database import (
     init_db,
     insert_measurement,
@@ -29,6 +32,20 @@ from database import (
     query_history,
     query_measurements,
     count_measurements,
+    get_sensor_config,
+    set_sensor_mode,
+    delete_sensor,
+    restore_sensor,
+    get_all_units,
+    get_unit,
+    create_unit,
+    update_unit,
+    delete_unit,
+    assign_sensor_to_unit,
+    get_all_thresholds,
+    get_thresholds_for_sensor,
+    set_threshold,
+    reset_thresholds_to_defaults,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -37,72 +54,129 @@ app = FastAPI(title="HMRA Monitor")
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 
-# ── Ingest ───────────────────────────────────
+# ── Ingest ───────────────────────────────────────────────────────────────────
 
 @app.post("/ingest")
 async def ingest(request: Request):
+
     body = await request.body()
     body_str = body.decode("utf-8", errors="replace")
+
     if not body_str.strip():
         return {"status": "error", "detail": "body vide"}
+
     try:
         data = json.loads(body_str)
     except Exception:
         return {"status": "error", "detail": "JSON invalide"}
 
     received_at = datetime.now().isoformat()
-    insert_measurement(data, received_at)
-    alerts = check_and_log_alerts(data, received_at)
 
-    sid  = data.get("sid", "?")
+    sid = data.get("sid")
+
+    # Récup config capteur
+    cfg = get_sensor_config().get(
+        sid,
+        {"mode": "active", "deleted": False}
+    )
+
+    # capteur supprimé
+    if cfg["deleted"]:
+        # auto-restore si le capteur revient
+        set_sensor_mode(sid, "active")
+        print(f"[AUTO] Sensor {sid} restauré automatiquement")
+
+    mode = cfg["mode"]
+
+    # OFF complet
+    if mode == "disabled":
+        print(f"[INFO] Sensor {sid} ignoré (OFF)")
+        return {"status": "ignored", "reason": "disabled"}
+
+    # stockage autorisé (active + maintenance)
+    insert_measurement(data, received_at)
+
+    alerts = []
+
+    # alarmes uniquement en mode actif
+    if mode == "active":
+        alerts = check_and_log_alerts(data, received_at)
+
+    # logs
     name = SENSOR_NAMES.get(sid, f"sid={sid}")
     now  = datetime.now().strftime("%H:%M:%S")
+
+    label = {
+        "active": "",
+        "maintenance": " [MAINTENANCE]",
+        "disabled": " [OFF]"
+    }[mode]
+
     print(f"\n{'─'*45}")
-    print(f"  {now}  —  {name}")
+    print(f"  {now}  —  {name}{label}")
     print(f"  Température : {data.get('temp_c', '?')} °C")
     if "hum_rh"   in data: print(f"  Humidité    : {data.get('hum_rh')} %RH")
     if "pres_hpa" in data: print(f"  Pression    : {data.get('pres_hpa')} hPa")
-    if alerts:             print(f"  ⚠️  {len(alerts)} alarme(s)")
+    if alerts:             print(f"  {len(alerts)} alarme(s)")
     print(f"{'─'*45}")
+
     return {"status": "ok", "alerts": len(alerts)}
 
 
-# ── Données brutes ───────────────────────────
+# ── Données brutes ────────────────────────────────────────────────────────────
 
 @app.get("/data")
 async def get_data(
     hours: int = Query(None),
     sid:   int = Query(None),
-    limit: int = Query(100)
+    limit: int = Query(100),
 ):
     rows = query_measurements(hours=hours, sid=sid, limit=limit)
     return {"count": len(rows), "data": rows}
 
 
-# ── Stats ────────────────────────────────────
+# ── Stats ─────────────────────────────────────────────────────────────────────
 
 @app.get("/stats")
 async def get_stats():
     rows          = query_stats()
     now           = datetime.now()
     active_alerts = query_alerts(limit=200, only_active=True)
-    alarm_sids    = set(a["sid"] for a in active_alerts)
+    alarm_sids    = {a["sid"] for a in active_alerts}
+    sensor_cfg    = get_sensor_config()
 
+    
     for r in rows:
-        r["sensor_name"] = SENSOR_NAMES.get(r["sid"], "Inconnu")
-        last             = datetime.fromisoformat(r["received_at"])
-        r["age_seconds"] = int((now - last).total_seconds())
-        r["offline"]     = r["age_seconds"] > OFFLINE_THRESHOLD_S
-        r["has_alarm"]   = r["sid"] in alarm_sids
+        sid = r["sid"]
+        cfg = sensor_cfg.get(sid, {"mode": "active", "deleted": False, "note": None, "unit_id": None})
+
+        r["sensor_name"] = SENSOR_NAMES.get(sid, "Inconnu")
+
+        mode = cfg["mode"]
+        r["mode"] = mode
+        r["deleted"] = cfg["deleted"]
+        r["note"] = cfg["note"]
+
+        last = datetime.fromisoformat(r["received_at"])
+        age  = int((now - last).total_seconds())
+
+        r["age_seconds"] = age
+
+        if cfg["deleted"] or mode != "active":
+            r["offline"]   = False
+            r["has_alarm"] = False
+        else:
+            r["offline"]   = age > OFFLINE_THRESHOLD_S
+            r["has_alarm"] = sid in alarm_sids
     return {"sensors": rows, "offline_threshold_s": OFFLINE_THRESHOLD_S}
 
 
-# ── Alarmes ──────────────────────────────────
+# ── Alarmes ───────────────────────────────────────────────────────────────────
 
 @app.get("/alerts")
 async def get_alerts(
     limit:       int  = Query(50),
-    active_only: bool = Query(False)
+    active_only: bool = Query(False),
 ):
     rows = query_alerts(limit=limit, only_active=active_only)
     for r in rows:
@@ -124,7 +198,7 @@ async def ack_all():
     return {"status": "ok", "acknowledged": affected}
 
 
-# ── Historique ───────────────────────────────
+# ── Historique ────────────────────────────────────────────────────────────────
 
 @app.get("/history/{sid}")
 async def get_history(sid: int, hours: int = Query(24)):
@@ -132,7 +206,221 @@ async def get_history(sid: int, hours: int = Query(24)):
     return {"sid": sid, "count": len(rows), "data": rows}
 
 
-# ── Root + Dashboard ─────────────────────────
+# ── Seuils ────────────────────────────────────────────────────────────────────
+
+@app.get("/thresholds")
+async def list_thresholds():
+    """Retourne tous les seuils actifs depuis la base SQLite."""
+    return {"thresholds": get_all_thresholds()}
+
+
+@app.get("/thresholds/{sid}")
+async def get_sensor_thresholds(sid: int):
+    """Retourne les seuils d'un capteur spécifique."""
+    data = get_thresholds_for_sensor(sid)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Aucun seuil pour sid={sid}")
+    return {"sid": sid, "thresholds": data}
+
+
+@app.put("/thresholds/{sid}/{param}")
+async def update_threshold(sid: int, param: str, request: Request):
+    """
+    Met à jour un seuil pour un capteur et un paramètre donnés.
+    Body JSON : {"vmin": 2.0, "vmax": 8.0}
+    Effet immédiat sur les alarmes sans redémarrage.
+    """
+    body = await request.body()
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except Exception:
+        return {"status": "error", "detail": "JSON invalide"}
+
+    vmin = payload.get("vmin")
+    vmax = payload.get("vmax")
+
+    if vmin is None or vmax is None:
+        return {"status": "error", "detail": "vmin et vmax sont obligatoires"}
+    if vmin >= vmax:
+        return {"status": "error", "detail": "vmin doit être strictement inférieur à vmax"}
+
+    set_threshold(sid, param, float(vmin), float(vmax))
+    return {"status": "ok", "sid": sid, "param": param, "vmin": vmin, "vmax": vmax}
+
+
+@app.post("/thresholds/{sid}/reset")
+async def reset_sensor_thresholds(sid: int):
+    """Réinitialise les seuils d'un capteur aux valeurs de config.py."""
+    reset_thresholds_to_defaults(sid)
+    return {"status": "ok", "sid": sid, "message": f"Seuils sid={sid} réinitialisés"}
+
+
+@app.post("/thresholds/reset-all")
+async def reset_all_thresholds():
+    """Réinitialise tous les seuils aux valeurs de config.py."""
+    reset_thresholds_to_defaults()
+    return {"status": "ok", "message": "Tous les seuils réinitialisés depuis config.py"}
+
+
+# ── Gestion des capteurs ──────────────────────────────────────────────────────
+
+@app.get("/sensors/config")
+async def sensors_config():
+    """Liste l'état complet de tous les capteurs connus."""
+    cfg        = get_sensor_config()
+    thresholds = get_all_thresholds()
+    result     = []
+    for sid, name in SENSOR_NAMES.items():
+        entry = cfg.get(sid, {"mode": "active", "deleted": False, "note": None, "unit_id": None})
+        result.append({
+            "sid":        sid,
+            "name":       name,
+            "mode":       entry["mode"],
+            "deleted":    entry["deleted"],
+            "note":       entry["note"],
+            "unit_id":    entry["unit_id"],
+            "thresholds": thresholds.get(sid, {}),
+        })
+    return result
+
+
+@app.post("/sensors/{sid}/mode")
+async def set_sensor_mode_endpoint(sid: int, request: Request):
+    """
+    Active ou désactive un capteur.
+    Body JSON : {"mode": "active" | "maintenance" | "disabled"}
+    """
+    body = await request.body()
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except Exception:
+        return {"status": "error", "detail": "JSON invalide"}
+
+    mode = payload.get("mode", "active")
+    note = payload.get("note", None)
+
+    if mode not in ["active", "maintenance", "disabled"]:
+        return {"status": "error", "detail": "mode invalide"}
+
+    set_sensor_mode(sid, mode, note)
+
+    label = {
+        "active": "ACTIF",
+        "maintenance": "MAINTENANCE",
+        "disabled": "OFF"
+    }[mode]
+
+
+    return {"status": "ok", "sid": sid, "mode": mode, "message": f"Capteur {sid} {label}"}
+
+
+@app.delete("/sensors/{sid}")
+async def remove_sensor(sid: int):
+    """Soft-delete : masque le capteur sans effacer l'historique."""
+    delete_sensor(sid)
+    return {"status": "ok", "sid": sid, "message": f"Capteur {sid} supprimé"}
+
+
+@app.post("/sensors/{sid}/restore")
+async def restore_sensor_endpoint(sid: int):
+    """Restaure un capteur précédemment supprimé."""
+    restore_sensor(sid)
+    return {"status": "ok", "sid": sid, "message": f"Capteur {sid} restauré"}
+
+
+@app.post("/sensors/{sid}/assign-unit")
+async def assign_unit(sid: int, request: Request):
+    """
+    Assigne ou désassigne un capteur d'une unité.
+    Body JSON : {"unit_id": 3}  ou  {"unit_id": null}
+    """
+    body = await request.body()
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except Exception:
+        return {"status": "error", "detail": "JSON invalide"}
+
+    unit_id = payload.get("unit_id")
+    assign_sensor_to_unit(sid, unit_id)
+    return {"status": "ok", "sid": sid, "unit_id": unit_id}
+
+
+# ── Gestion des unités ────────────────────────────────────────────────────────
+
+@app.get("/units")
+async def list_units():
+    return {"units": get_all_units()}
+
+
+@app.get("/units/form-options")
+async def unit_form_options():
+    return {
+        "unit_types":           UNIT_TYPES,
+        "services_utilisation": SERVICES_UTILISATION,
+        "services_responsable": SERVICES_RESPONSABLE,
+    }
+
+
+@app.get("/units/{unit_id}")
+async def get_unit_endpoint(unit_id: int):
+    unit = get_unit(unit_id)
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unité introuvable")
+    return unit
+
+
+@app.post("/units")
+async def create_unit_endpoint(request: Request):
+    body = await request.body()
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except Exception:
+        return {"status": "error", "detail": "JSON invalide"}
+
+    name                = payload.get("name", "").strip()
+    unit_type           = payload.get("unit_type", "")
+    service_utilisation = payload.get("service_utilisation", "")
+    service_responsable = payload.get("service_responsable", "")
+
+    if not name:
+        return {"status": "error", "detail": "Le nom est obligatoire"}
+
+    unit = create_unit(name, unit_type, service_utilisation, service_responsable)
+    return {"status": "ok", "unit": unit}
+
+
+@app.put("/units/{unit_id}")
+async def update_unit_endpoint(unit_id: int, request: Request):
+    body = await request.body()
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except Exception:
+        return {"status": "error", "detail": "JSON invalide"}
+
+    name                = payload.get("name", "").strip()
+    unit_type           = payload.get("unit_type", "")
+    service_utilisation = payload.get("service_utilisation", "")
+    service_responsable = payload.get("service_responsable", "")
+
+    if not name:
+        return {"status": "error", "detail": "Le nom est obligatoire"}
+
+    found = update_unit(unit_id, name, unit_type, service_utilisation, service_responsable)
+    if not found:
+        raise HTTPException(status_code=404, detail="Unité introuvable")
+    return {"status": "ok", "unit_id": unit_id}
+
+
+@app.delete("/units/{unit_id}")
+async def delete_unit_endpoint(unit_id: int):
+    unit = get_unit(unit_id)
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unité introuvable")
+    delete_unit(unit_id)
+    return {"status": "ok", "unit_id": unit_id, "message": f"Unité '{unit['name']}' supprimée"}
+
+
+# ── Root + Dashboard ──────────────────────────────────────────────────────────
 
 @app.get("/")
 async def root():
@@ -144,18 +432,20 @@ async def dashboard():
     return FileResponse(os.path.join(BASE_DIR, "static", "dashboard.html"))
 
 
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  LANCEMENT
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     init_db()
     print(f"\n{'═'*45}")
     print(f"  HMRA Monitor — Serveur")
     print(f"{'═'*45}")
-    print(f"  Dashboard  → http://192.168.1.100:{PORT}/dashboard")
-    print(f"  API stats  → http://192.168.1.100:{PORT}/stats")
-    print(f"  API data   → http://192.168.1.100:{PORT}/data")
-    print(f"  API alerts → http://192.168.1.100:{PORT}/alerts")
+    print(f"  Dashboard   → http://192.168.1.100:{PORT}/dashboard")
+    print(f"  API stats   → http://192.168.1.100:{PORT}/stats")
+    print(f"  API alerts  → http://192.168.1.100:{PORT}/alerts")
+    print(f"  API units   → http://192.168.1.100:{PORT}/units")
+    print(f"  API seuils  → http://192.168.1.100:{PORT}/thresholds")
+    print(f"  API config  → http://192.168.1.100:{PORT}/sensors/config")
     print(f"{'═'*45}\n")
     uvicorn.run(app, host=HOST, port=PORT)

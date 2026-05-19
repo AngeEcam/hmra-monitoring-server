@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-/* ── Reset & tokens ─────────────────────── */
+/* ── Reset & tokens ──────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -20,7 +20,6 @@
   --text:      #c8d8e8;
   --muted:     #4a6070;
   --dim:       #2a3a4a;
-
   --blue:      #3a9fd8;
   --blue-dim:  #1a3a50;
   --green:     #2ecc71;
@@ -29,15 +28,11 @@
   --red-dim:   #2a0a0a;
   --amber:     #f39c12;
   --amber-dim: #2a1a00;
-
-  --r-sm:   10px;
-  --r-md:   14px;
-  --r-lg:   18px;
-  --r-pill: 999px;
-
+  --r-sm: 10px; --r-md: 14px; --r-lg: 18px; --r-pill: 999px;
   --font-mono: 'Share Tech Mono', monospace;
   --font-ui:   'Barlow', sans-serif;
   --font-cond: 'Barlow Condensed', sans-serif;
+  --sidebar-w: 220px;
 }
 
 body {
@@ -45,530 +40,907 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  display: flex;
   overflow-x: hidden;
 }
 
-/* Scanline overlay */
 body::before {
   content: '';
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,.03) 2px,
-    rgba(0,0,0,.03) 4px
-  );
-  pointer-events: none;
-  z-index: 9999;
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
+  pointer-events: none; z-index: 9999;
 }
 
-/* ── Header ─────────────────────────────── */
-header {
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
   background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 200;
+}
+
+.sidebar-logo {
+  padding: 20px 18px 16px;
   border-bottom: 1px solid var(--border);
-  padding: 0 28px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  display: flex; align-items: center; gap: 10px;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.logo-icon {
-  width: 34px;
-  height: 34px;
+.sidebar-logo-icon {
+  width: 32px; height: 32px;
   background: var(--blue-dim);
   border: 1px solid var(--blue);
   border-radius: var(--r-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-cond);
-  font-weight: 700;
-  font-size: .85rem;
-  color: var(--blue);
-  letter-spacing: .05em;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-cond); font-weight: 700;
+  font-size: .8rem; color: var(--blue);
+  flex-shrink: 0;
 }
 
-.logo-text {
-  font-family: var(--font-cond);
-  font-weight: 700;
-  font-size: 1.1rem;
-  letter-spacing: .12em;
-  color: #fff;
-  text-transform: uppercase;
+.sidebar-logo-text {
+  font-family: var(--font-cond); font-weight: 700;
+  font-size: 1rem; letter-spacing: .1em;
+  color: #fff; text-transform: uppercase; line-height: 1.1;
 }
-.logo-text span { color: var(--blue); }
-
-.header-tag {
-  font-family: var(--font-mono);
-  font-size: .65rem;
-  color: var(--muted);
-  border: 1px solid var(--border2);
-  padding: 2px 10px;
-  letter-spacing: .08em;
-  border-radius: var(--r-pill);
+.sidebar-logo-text span { color: var(--blue); }
+.sidebar-logo-sub {
+  font-family: var(--font-mono); font-size: .55rem;
+  color: var(--muted); letter-spacing: .06em; margin-top: 1px;
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px;
+  font-family: var(--font-cond); font-size: .78rem;
+  font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all .15s;
+  user-select: none;
+}
+.nav-item:hover { color: var(--text); background: var(--surface2); }
+.nav-item.active {
+  color: var(--blue); border-left-color: var(--blue);
+  background: var(--blue-dim);
+}
+.nav-item .nav-icon { font-size: 1rem; width: 18px; text-align: center; }
+
+.nav-section-label {
+  font-family: var(--font-mono); font-size: .55rem;
+  color: var(--dim); letter-spacing: .12em; text-transform: uppercase;
+  padding: 10px 18px 4px;
+}
+
+.sidebar-footer {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
 }
 
 .live-pill {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background: var(--green-dim);
-  border: 1px solid #1a5c38;
-  border-radius: var(--r-pill);
-  padding: 4px 13px;
-  font-family: var(--font-mono);
-  font-size: .68rem;
-  color: var(--green);
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: .62rem; color: var(--green);
 }
-
 .live-dot {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 6px var(--green);
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 5px var(--green);
   animation: pulse 2s ease-in-out infinite;
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-#last-update {
-  font-family: var(--font-mono);
-  font-size: .68rem;
-  color: var(--green);
+/* ── Main content ────────────────────────────────────────────────────────── */
+.main-wrap {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
 }
 
-/* ── Layout ─────────────────────────────── */
-main {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 24px 28px;
+.topbar {
+  height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px;
+  position: sticky; top: 0; z-index: 100;
 }
 
-/* ── Section titles ─────────────────────── */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+.topbar-title {
+  font-family: var(--font-cond); font-size: .8rem;
+  font-weight: 700; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--muted);
 }
 
-.section-title {
-  font-family: var(--font-cond);
-  font-size: .7rem;
-  font-weight: 600;
-  letter-spacing: .15em;
-  text-transform: uppercase;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.section-title::before {
-  content: '';
-  display: block;
-  width: 3px; height: 14px;
-  background: var(--blue);
-  border-radius: 2px;
+.topbar-right {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--font-mono); font-size: .65rem; color: var(--muted);
 }
 
-/* ── Offline banner ─────────────────────── */
 #offline-banner {
   display: none;
-  background: var(--red-dim);
-  border: 1px solid var(--red);
-  padding: 10px 16px;
-  margin-bottom: 20px;
-  font-family: var(--font-mono);
-  font-size: .75rem;
-  color: var(--red);
-  letter-spacing: .04em;
-  border-radius: var(--r-md);
+  background: var(--red-dim); border-bottom: 1px solid var(--red);
+  padding: 8px 28px;
+  font-family: var(--font-mono); font-size: .72rem;
+  color: var(--red); letter-spacing: .04em;
 }
 
-/* ── Cards grid ─────────────────────────── */
+.page-content { padding: 24px 28px; flex: 1; }
+
+/* ── Pages ───────────────────────────────────────────────────────────────── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── Section headers ─────────────────────────────────────────────────────── */
+.section-header {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 16px;
+}
+.section-title {
+  font-family: var(--font-cond); font-size: .7rem;
+  font-weight: 600; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--muted);
+  display: flex; align-items: center; gap: 10px;
+}
+.section-title::before {
+  content: ''; display: block; width: 3px; height: 14px;
+  background: var(--blue); border-radius: 2px;
+}
+
+/* ── Dashboard — sensor cards ───────────────────────────────────────────── */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 12px;
-  margin-bottom: 28px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px; margin-bottom: 32px;
 }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 18px 20px;
-  position: relative;
-  overflow: hidden;
-  cursor: default;
-  transition: border-color .2s, background .2s;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 16px 18px;
+  position: relative; overflow: hidden;
+  cursor: pointer; transition: border-color .2s, transform .1s;
 }
-
-/* Top accent bar */
+.card:hover { border-color: var(--border2); transform: translateY(-1px); }
 .card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: var(--blue);
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-  transition: background .2s;
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--blue);
+  border-radius: var(--r-lg) var(--r-lg) 0 0; transition: background .2s;
 }
-
 .card.ok::before    { background: var(--green); }
 .card.alarm         { border-color: var(--red); background: var(--red-dim); }
 .card.alarm::before { background: var(--red); }
-.card.offline       { opacity: .6; }
 .card.offline::before { background: var(--dim); }
-
-.card-label {
-  font-family: var(--font-cond);
-  font-size: .7rem;
-  font-weight: 600;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 10px;
-}
-
-.card-temp {
-  font-family: var(--font-mono);
-  font-size: 2.2rem;
-  font-weight: 400;
-  color: #fff;
-  line-height: 1;
-  margin-bottom: 10px;
-}
-.card-temp.dim { color: var(--dim); }
-.card-temp sup { font-size: 1rem; color: var(--muted); }
-
-.card-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-.card-meta-row {
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  color: var(--muted);
-  display: flex;
-  justify-content: space-between;
-}
-.card-meta-val { color: var(--text); }
+.card.offline       { opacity: .6; }
+.card.disabled      { opacity: .4; background: var(--bg); }
+.card.disabled::before { background: var(--dim); }
 
 .card-status {
-  position: absolute;
-  top: 14px; right: 14px;
-  font-family: var(--font-mono);
-  font-size: .6rem;
-  letter-spacing: .1em;
-  padding: 2px 9px;
-  border: 1px solid;
-  border-radius: var(--r-pill);
+  position: absolute; top: 12px; right: 12px;
+  font-family: var(--font-mono); font-size: .55rem;
+  letter-spacing: .1em; padding: 2px 8px;
+  border: 1px solid; border-radius: var(--r-pill);
 }
-.card-status.ok      { color: var(--green); border-color: var(--green); background: var(--green-dim); }
-.card-status.alarm   { color: var(--red);   border-color: var(--red);   background: var(--red-dim); }
-.card-status.offline { color: var(--dim);   border-color: var(--dim); }
+.card-status.ok       { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+.card-status.alarm    { color: var(--red);   border-color: var(--red);   background: var(--red-dim); }
+.card-status.offline  { color: var(--dim);   border-color: var(--dim); }
+.card-status.disabled { color: var(--muted); border-color: var(--dim); }
 
-.card-age {
-  margin-top: 10px;
-  font-family: var(--font-mono);
-  font-size: .62rem;
-  color: var(--dim);
+.card-label {
+  font-family: var(--font-cond); font-size: .68rem;
+  font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+  padding-right: 60px;
 }
+.card-unit-tag {
+  font-family: var(--font-mono); font-size: .58rem;
+  color: var(--blue); margin-bottom: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-temp {
+  font-family: var(--font-mono); font-size: 2rem;
+  color: #fff; line-height: 1; margin-bottom: 8px;
+}
+.card-temp.dim { color: var(--dim); }
+.card-temp sup { font-size: .9rem; color: var(--muted); }
+.card-meta { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--border); }
+.card-meta-row {
+  font-family: var(--font-mono); font-size: .65rem;
+  color: var(--muted); display: flex; justify-content: space-between;
+}
+.card-meta-val { color: var(--text); }
+.card-age { margin-top: 8px; font-family: var(--font-mono); font-size: .58rem; color: var(--dim); }
 .card-age.stale { color: var(--red); }
 
-/* ── Period selector ─────────────────────── */
-.controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 3px;
+/* ── Detail page ─────────────────────────────────────────────────────────── */
+.detail-back {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: .68rem;
+  color: var(--muted); cursor: pointer; margin-bottom: 20px;
+  transition: color .15s;
 }
-.controls label {
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  color: var(--muted);
-  letter-spacing: .06em;
-  padding: 0 8px;
-}
-.period-tab {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  padding: 4px 14px;
-  font-family: var(--font-mono);
-  font-size: .72rem;
-  cursor: pointer;
-  border-radius: 7px;
-  transition: all .15s;
-}
-.period-tab.active {
-  background: var(--blue-dim);
-  color: var(--blue);
-  border: 1px solid var(--blue);
+.detail-back:hover { color: var(--blue); }
+
+.detail-header {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; margin-bottom: 24px;
+  gap: 16px; flex-wrap: wrap;
 }
 
-/* ── Sensor chart blocks ─────────────────── */
+.detail-title {
+  font-family: var(--font-cond); font-size: 1.4rem;
+  font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: #fff;
+}
+.detail-sid {
+  font-family: var(--font-mono); font-size: .68rem;
+  color: var(--blue); margin-top: 3px;
+}
+
+.detail-badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.badge {
+  font-family: var(--font-mono); font-size: .62rem;
+  letter-spacing: .08em; padding: 3px 12px;
+  border: 1px solid; border-radius: var(--r-pill);
+}
+.badge-ok       { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+.badge-alarm    { color: var(--red);   border-color: var(--red);   background: var(--red-dim); }
+.badge-offline  { color: var(--muted); border-color: var(--dim); }
+.badge-disabled { color: var(--muted); border-color: var(--dim); }
+
+.detail-values-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px; margin-bottom: 28px;
+}
+
+.detail-val-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 16px 18px;
+}
+.detail-val-label {
+  font-family: var(--font-mono); font-size: .6rem;
+  color: var(--muted); letter-spacing: .1em;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.detail-val-num {
+  font-family: var(--font-mono); font-size: 1.8rem;
+  color: #fff; line-height: 1;
+}
+.detail-val-num.alarm-val { color: var(--red); }
+.detail-val-num sup { font-size: .8rem; color: var(--muted); }
+.detail-val-thr {
+  font-family: var(--font-mono); font-size: .58rem;
+  color: var(--dim); margin-top: 6px;
+}
+
+.detail-unit-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 16px 18px;
+  margin-bottom: 28px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.detail-unit-field { display: flex; flex-direction: column; gap: 3px; }
+.detail-unit-field-label {
+  font-family: var(--font-mono); font-size: .58rem;
+  color: var(--dim); letter-spacing: .1em; text-transform: uppercase;
+}
+.detail-unit-field-val {
+  font-family: var(--font-ui); font-size: .85rem; color: var(--text);
+}
+
+/* ── Charts (shared) ─────────────────────────────────────────────────────── */
 .sensor-block {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  margin-bottom: 16px;
-  overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); margin-bottom: 16px; overflow: hidden;
 }
 .sensor-block.offline { opacity: .55; }
 
 .sensor-block-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px; border-bottom: 1px solid var(--border);
   background: var(--surface2);
 }
-
 .sensor-block-name {
-  font-family: var(--font-cond);
-  font-size: .85rem;
-  font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #fff;
+  font-family: var(--font-cond); font-size: .85rem;
+  font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: #fff;
+}
+.sensor-block-unit {
+  font-family: var(--font-mono); font-size: .6rem;
+  color: var(--blue); margin-left: auto; white-space: nowrap;
 }
 .sid-tag {
-  font-family: var(--font-mono);
-  font-size: .62rem;
-  color: var(--blue);
-  border: 1px solid var(--blue-dim);
-  padding: 1px 9px;
-  letter-spacing: .06em;
-  border-radius: var(--r-pill);
+  font-family: var(--font-mono); font-size: .6rem; color: var(--blue);
+  border: 1px solid var(--blue-dim); padding: 1px 9px;
+  letter-spacing: .06em; border-radius: var(--r-pill);
 }
 .offline-tag {
-  font-family: var(--font-mono);
-  font-size: .62rem;
-  color: var(--muted);
-  border: 1px solid var(--dim);
-  padding: 1px 9px;
-  border-radius: var(--r-pill);
+  font-family: var(--font-mono); font-size: .6rem; color: var(--muted);
+  border: 1px solid var(--dim); padding: 1px 9px; border-radius: var(--r-pill);
 }
-
-.charts-row {
-  display: grid;
-  gap: 0;
-}
-
-.chart-panel {
-  padding: 16px 18px;
-  border-right: 1px solid var(--border);
-}
+.charts-row { display: grid; gap: 0; }
+.chart-panel { padding: 16px 18px; border-right: 1px solid var(--border); }
 .chart-panel:last-child { border-right: none; }
-
 .chart-param-label {
-  font-family: var(--font-mono);
-  font-size: .62rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 10px;
+  font-family: var(--font-mono); font-size: .6rem;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 10px;
 }
-
 .chart-container { position: relative; height: 140px; }
 
-/* ── Alerts table ────────────────────────── */
-.alerts-block {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  margin-bottom: 28px;
-  overflow: hidden;
+/* ── Period selector ─────────────────────────────────────────────────────── */
+.controls {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 3px;
 }
+.controls label {
+  font-family: var(--font-mono); font-size: .68rem;
+  color: var(--muted); letter-spacing: .06em; padding: 0 8px;
+}
+.period-tab {
+  border: none; background: transparent; color: var(--muted);
+  padding: 4px 14px; font-family: var(--font-mono); font-size: .7rem;
+  cursor: pointer; border-radius: 7px; transition: all .15s;
+}
+.period-tab.active { background: var(--blue-dim); color: var(--blue); border: 1px solid var(--blue); }
 
+/* ── Alerts table ────────────────────────────────────────────────────────── */
+.alerts-block {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); margin-bottom: 28px; overflow: hidden;
+}
 .alerts-block-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-bottom: 1px solid var(--border);
   background: var(--surface2);
 }
-
 .btn-ack-all {
-  font-family: var(--font-mono);
-  font-size: .68rem;
-  letter-spacing: .06em;
-  color: var(--amber);
-  border: 1px solid var(--amber);
-  background: var(--amber-dim);
-  padding: 5px 14px;
-  cursor: pointer;
-  transition: all .2s;
-  text-transform: uppercase;
-  border-radius: var(--r-pill);
+  font-family: var(--font-mono); font-size: .65rem;
+  letter-spacing: .06em; color: var(--amber);
+  border: 1px solid var(--amber); background: var(--amber-dim);
+  padding: 5px 14px; cursor: pointer; transition: all .2s;
+  text-transform: uppercase; border-radius: var(--r-pill);
 }
-.btn-ack-all:hover {
-  background: var(--amber);
-  color: #000;
-}
+.btn-ack-all:hover { background: var(--amber); color: #000; }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: .78rem;
-}
+table { width: 100%; border-collapse: collapse; font-size: .75rem; }
 th {
-  text-align: left;
-  padding: 9px 14px;
-  font-family: var(--font-cond);
-  font-size: .68rem;
-  font-weight: 600;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
+  text-align: left; padding: 9px 14px;
+  font-family: var(--font-cond); font-size: .65rem;
+  font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--border);
 }
 td {
-  padding: 9px 14px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: .72rem;
+  padding: 9px 14px; border-bottom: 1px solid var(--border);
+  color: var(--text); font-family: var(--font-mono); font-size: .68rem;
 }
 tr.acked td { opacity: .4; }
 tr:hover td { background: var(--surface2); }
-
 .val-alarm { color: var(--red); font-weight: bold; }
 .status-active {
-  color: var(--red);
-  font-size: .65rem;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  color: var(--red); font-size: .62rem;
+  display: flex; align-items: center; gap: 5px;
 }
 .status-active::before {
-  content: '';
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 6px var(--red);
-  display: inline-block;
-  animation: pulse 1.5s infinite;
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--red); box-shadow: 0 0 6px var(--red);
+  display: inline-block; animation: pulse 1.5s infinite;
 }
-.status-acked { color: var(--green); font-size: .65rem; }
-
+.status-acked { color: var(--green); font-size: .62rem; }
 .btn-ack {
-  font-family: var(--font-mono);
-  font-size: .62rem;
-  color: var(--muted);
-  border: 1px solid var(--border2);
-  background: transparent;
-  padding: 3px 10px;
-  cursor: pointer;
-  transition: all .2s;
-  letter-spacing: .04em;
-  white-space: nowrap;
-  border-radius: var(--r-pill);
+  font-family: var(--font-mono); font-size: .6rem;
+  color: var(--muted); border: 1px solid var(--border2);
+  background: transparent; padding: 3px 10px;
+  cursor: pointer; transition: all .2s;
+  letter-spacing: .04em; white-space: nowrap; border-radius: var(--r-pill);
 }
-.btn-ack:hover {
-  color: var(--green);
-  border-color: var(--green);
-  background: var(--green-dim);
-}
+.btn-ack:hover { color: var(--green); border-color: var(--green); background: var(--green-dim); }
 
 .no-data {
-  font-family: var(--font-mono);
-  font-size: .75rem;
-  color: var(--dim);
-  text-align: center;
-  padding: 28px;
-  letter-spacing: .06em;
+  font-family: var(--font-mono); font-size: .72rem;
+  color: var(--dim); text-align: center; padding: 28px; letter-spacing: .06em;
 }
+
+/* ── Management page ─────────────────────────────────────────────────────── */
+.mgmt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px; margin-bottom: 32px;
+}
+.mgmt-card {
+  height: 280px; 
+  display: flex;
+  flex-direction: column;
+}
+
+.mgmt-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.mgmt-card-title {
+  font-family: var(--font-cond); font-size: .82rem;
+  font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: #fff;
+}
+.mgmt-card-sid {
+  font-family: var(--font-mono); font-size: .6rem; color: var(--blue);
+  border: 1px solid var(--blue-dim); padding: 1px 8px; border-radius: var(--r-pill);
+}
+.mgmt-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+/* Status toggle row */
+.mgmt-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.mgmt-row-label {
+  font-family: var(--font-mono); font-size: .6rem;
+  color: var(--muted); letter-spacing: .08em; text-transform: uppercase;
+}
+.mgmt-row-val {
+  font-family: var(--font-mono); font-size: .68rem; color: var(--text);
+  text-align: right; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Toggle switch */
+.toggle-wrap { display: flex; align-items: center; gap: 8px; }
+.toggle {
+  position: relative; width: 36px; height: 20px; cursor: pointer;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0;
+  background: var(--dim); border-radius: var(--r-pill);
+  transition: background .2s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; left: 3px; top: 3px;
+  transition: transform .2s;
+}
+.toggle input:checked + .toggle-slider { background: var(--green); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+/* Threshold fields */
+
+.thr-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+
+  min-height: 140px;   /* ✅ AJOUT */
+}
+
+.thr-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.thr-param-label {
+  font-family: var(--font-mono); font-size: .6rem;
+  color: var(--muted); width: 80px; flex-shrink: 0;
+}
+.thr-input {
+  width: 72px; background: var(--surface2);
+  border: 1px solid var(--border2); border-radius: var(--r-sm);
+  color: #fff; font-family: var(--font-mono); font-size: .68rem;
+  padding: 4px 8px; outline: none; transition: border-color .2s;
+  text-align: center;
+}
+.thr-input:focus { border-color: var(--blue); }
+.thr-sep { font-family: var(--font-mono); font-size: .6rem; color: var(--dim); }
+.thr-save {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: .58rem;
+  color: var(--blue); border: 1px solid var(--blue-dim);
+  background: transparent; padding: 3px 10px;
+  border-radius: var(--r-pill); cursor: pointer; transition: all .2s;
+}
+.thr-save:hover { background: var(--blue-dim); }
+.thr-reset {
+  font-family: var(--font-mono); font-size: .58rem;
+  color: var(--muted); border: 1px solid var(--border);
+  background: transparent; padding: 3px 8px;
+  border-radius: var(--r-pill); cursor: pointer; transition: all .2s;
+}
+.thr-reset:hover { border-color: var(--amber); color: var(--amber); }
+
+/* Mgmt action buttons */
+
+.mgmt-actions {
+  margin-top: auto;
+}
+
+.btn-mgmt {
+  flex: 1; font-family: var(--font-mono); font-size: .6rem;
+  letter-spacing: .04em; padding: 5px 0;
+  border-radius: var(--r-pill); border: 1px solid var(--border2);
+  background: transparent; color: var(--muted);
+  cursor: pointer; transition: all .2s; text-align: center;
+}
+.btn-mgmt:hover              { border-color: var(--blue); color: var(--blue); }
+.btn-mgmt.btn-del            { flex: 0 0 auto; padding: 5px 12px; border-color: #2a0a0a; color: #6a2a2a; }
+.btn-mgmt.btn-del:hover      { border-color: var(--red); color: var(--red); }
+.btn-mgmt.btn-restore        { border-color: #1a5c38; color: var(--green); }
+.btn-mgmt.btn-restore:hover  { background: var(--green-dim); }
+
+/* Units management */
+.units-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px; margin-bottom: 28px;
+}
+.unit-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 16px 18px; position: relative; overflow: hidden;
+}
+.unit-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--blue);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.unit-card-name {
+  font-family: var(--font-cond); font-size: .9rem; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: #fff;
+  margin-bottom: 3px; padding-right: 20px;
+}
+.unit-card-type { font-family: var(--font-mono); font-size: .6rem; color: var(--blue); margin-bottom: 10px; }
+.unit-card-info { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-top: 1px solid var(--border); margin-bottom: 10px; }
+.unit-info-row { font-family: var(--font-mono); font-size: .62rem; color: var(--muted); display: flex; gap: 6px; }
+.unit-info-row span:last-child { color: var(--text); }
+.unit-sensors { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.sensor-chip {
+  font-family: var(--font-mono); font-size: .56rem; color: var(--blue);
+  border: 1px solid var(--blue-dim); padding: 1px 8px; border-radius: var(--r-pill);
+}
+.sensor-chip.none { color: var(--dim); border-color: var(--dim); }
+.unit-actions {
+  display: flex; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.btn-unit {
+  flex: 1; font-family: var(--font-mono); font-size: .6rem;
+  padding: 4px 0; border-radius: var(--r-pill);
+  border: 1px solid var(--border2); background: transparent; color: var(--muted);
+  cursor: pointer; transition: all .2s; text-align: center;
+}
+.btn-unit:hover           { border-color: var(--blue); color: var(--blue); }
+.btn-unit.del             { flex: 0 0 auto; padding: 4px 10px; border-color: #2a0a0a; color: #6a2a2a; }
+.btn-unit.del:hover       { border-color: var(--red); color: var(--red); }
+
+.btn-new {
+  font-family: var(--font-mono); font-size: .65rem;
+  letter-spacing: .06em; color: var(--blue);
+  border: 1px solid var(--blue); background: var(--blue-dim);
+  padding: 5px 14px; cursor: pointer; transition: all .2s;
+  text-transform: uppercase; border-radius: var(--r-pill);
+}
+.btn-new:hover { background: var(--blue); color: #fff; }
+
+.btn-reset-all {
+  font-family: var(--font-mono); font-size: .65rem;
+  letter-spacing: .06em; color: var(--amber);
+  border: 1px solid var(--amber); background: var(--amber-dim);
+  padding: 5px 14px; cursor: pointer; transition: all .2s;
+  text-transform: uppercase; border-radius: var(--r-pill);
+}
+.btn-reset-all:hover { background: var(--amber); color: #000; }
+
+/* ── Modals ──────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.78); z-index: 500;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--r-lg); padding: 26px 30px;
+  max-width: 420px; width: 90%;
+}
+.modal-box.danger { border-color: var(--red); box-shadow: 0 0 40px rgba(231,76,60,.12); }
+.modal-box h3 {
+  font-family: var(--font-cond); font-size: .88rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: #fff; margin-bottom: 16px;
+}
+.modal-box.danger h3 { color: var(--red); }
+.modal-field { margin-bottom: 13px; }
+.modal-field label {
+  display: block; font-family: var(--font-mono); font-size: .6rem;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+}
+.modal-input, .modal-select {
+  width: 100%; background: var(--surface2);
+  border: 1px solid var(--border2); border-radius: var(--r-sm);
+  color: #fff; font-family: var(--font-ui); font-size: .82rem;
+  padding: 7px 11px; outline: none; transition: border-color .2s;
+}
+.modal-input:focus, .modal-select:focus { border-color: var(--blue); }
+.modal-select option { background: var(--surface2); }
+.modal-input::placeholder { color: var(--muted); }
+.modal-sub { font-family: var(--font-mono); font-size: .62rem; color: var(--muted); margin-bottom: 16px; }
+.modal-p { font-size: .82rem; color: var(--text); line-height: 1.6; margin-bottom: 6px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+.modal-btn {
+  font-family: var(--font-mono); font-size: .65rem; letter-spacing: .06em;
+  padding: 7px 20px; border-radius: var(--r-pill); cursor: pointer; transition: all .2s;
+}
+.modal-btn-cancel  { background: var(--surface2); border: 1px solid var(--border2); color: var(--muted); }
+.modal-btn-cancel:hover { border-color: var(--text); color: var(--text); }
+.modal-btn-confirm { background: var(--blue-dim); border: 1px solid var(--blue); color: var(--blue); }
+.modal-btn-confirm:hover { background: var(--blue); color: #fff; }
+.modal-btn-danger  { background: var(--red-dim); border: 1px solid var(--red); color: #fcc; }
+.modal-btn-danger:hover { background: #3a0a0a; }
+.modal-btn-warn    { background: var(--dim); border: 1px solid var(--border2); color: var(--text); }
+.modal-btn-warn:hover { border-color: var(--amber); color: var(--amber); }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="header-left">
-    <div class="logo">
-      <div class="logo-icon">HM</div>
-      <div class="logo-text">🏥 <span>HMRA</span> Monitor</div>
+<!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">HM</div>
+    <div>
+      <div class="sidebar-logo-text">🏥 <span>HMRA</span></div>
+      <div class="sidebar-logo-sub">ENV MONITORING v2.0</div>
     </div>
-    <div class="header-tag">ENV MONITORING v1.0</div>
   </div>
-  <div class="header-right">
+
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Monitoring</div>
+    <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard', this)">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+
+    <div class="nav-section-label">Configuration</div>
+    <div class="nav-item" data-page="management" onclick="navigate('management', this)">
+      <span class="nav-icon">⚙️</span> Management
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
     <div class="live-pill">
       <div class="live-dot"></div>
-      En direct · <span id="last-update">—</span>
+      <span id="last-update">—</span>
     </div>
   </div>
-</header>
+</nav>
 
-<main>
+<!-- ── Main wrap ─────────────────────────────────────────────────────────── -->
+<div class="main-wrap">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <div class="topbar-right">
+      <span id="topbar-meta"></span>
+    </div>
+  </div>
 
   <div id="offline-banner">⚠ CONNEXION INTERROMPUE — Affichage des dernières valeurs connues</div>
 
-  <!-- Cards -->
-  <div class="section-header">
-    <div class="section-title">État des capteurs</div>
-  </div>
-  <div class="cards-grid" id="cards"></div>
+  <div class="page-content">
 
-  <!-- Charts -->
-  <div class="section-header" style="margin-top:8px">
-    <div class="section-title">Historique</div>
-    <div class="controls">
-      <label>PÉRIODE</label>
-      <button class="period-tab" onclick="setPeriod(1,this)">1 h</button>
-      <button class="period-tab" onclick="setPeriod(6,this)">6 h</button>
-      <button class="period-tab active" onclick="setPeriod(24,this)">24 h</button>
+    <!-- ══ PAGE : DASHBOARD ════════════════════════════════════════════════ -->
+    <div class="page active" id="page-dashboard">
+
+      <div class="section-header">
+        <div class="section-title">État des capteurs</div>
+      </div>
+      <div class="cards-grid" id="cards"></div>
+
+      <div class="section-header">
+        <div class="section-title">Historique</div>
+        <div class="controls">
+          <label>PÉRIODE</label>
+          <button class="period-tab" onclick="setPeriod(1,this,'main')">1 h</button>
+          <button class="period-tab" onclick="setPeriod(6,this,'main')">6 h</button>
+          <button class="period-tab active" onclick="setPeriod(24,this,'main')">24 h</button>
+        </div>
+      </div>
+      <div id="sensors-charts"></div>
+
+      <div class="section-header" style="margin-top:8px">
+        <div class="section-title">Historique alarmes</div>
+      </div>
+      <div class="alerts-block">
+        <div class="alerts-block-header">
+          <span style="font-family:var(--font-mono);font-size:.68rem;color:var(--muted);letter-spacing:.06em">ALERT LOG</span>
+          <button class="btn-ack-all" onclick="acknowledgeAll()">✓ Acquitter tout</button>
+        </div>
+        <div id="alerts-body"></div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE : DETAIL CAPTEUR ══════════════════════════════════════════ -->
+    <div class="page" id="page-detail">
+      <div class="detail-back" onclick="navigate('dashboard', document.querySelector('[data-page=dashboard]'))">
+        ← Retour au dashboard
+      </div>
+
+      <div class="detail-header">
+        <div>
+          <div class="detail-title" id="detail-name">—</div>
+          <div class="detail-sid" id="detail-sid">SID —</div>
+        </div>
+        <div class="detail-badges" id="detail-badges"></div>
+      </div>
+
+      <div class="detail-values-row" id="detail-values"></div>
+
+      <div id="detail-unit-box" style="display:none">
+        <div class="section-header" style="margin-bottom:12px">
+          <div class="section-title">Unité</div>
+        </div>
+        <div class="detail-unit-box" id="detail-unit-fields"></div>
+      </div>
+
+      <div class="section-header" style="margin-top:8px">
+        <div class="section-title">Historique</div>
+        <div class="controls">
+          <label>PÉRIODE</label>
+          <button class="period-tab" onclick="setPeriod(1,this,'detail')">1 h</button>
+          <button class="period-tab" onclick="setPeriod(6,this,'detail')">6 h</button>
+          <button class="period-tab active" onclick="setPeriod(24,this,'detail')">24 h</button>
+        </div>
+      </div>
+      <div id="detail-charts"></div>
+
+      <div class="section-header" style="margin-top:8px">
+        <div class="section-title">Alarmes</div>
+      </div>
+      <div class="alerts-block">
+        <div class="alerts-block-header">
+          <span style="font-family:var(--font-mono);font-size:.68rem;color:var(--muted)">ALERT LOG — <span id="detail-sensor-name-label"></span></span>
+        </div>
+        <div id="detail-alerts-body"></div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE : MANAGEMENT ══════════════════════════════════════════════ -->
+    <div class="page" id="page-management">
+
+      <!-- Capteurs -->
+      <div class="section-header">
+        <div class="section-title">Capteurs</div>
+        <button class="btn-reset-all" onclick="confirmResetAll()">↺ Reset tous les seuils</button>
+      </div>
+      <div class="mgmt-grid" id="mgmt-sensors"></div>
+
+      <!-- Unités -->
+      <div class="section-header">
+        <div class="section-title">Unités</div>
+        <button class="btn-new" onclick="openUnitModal()">+ Nouvelle unité</button>
+      </div>
+      <div class="units-grid" id="mgmt-units">
+        <div class="no-data">Chargement…</div>
+      </div>
+
+    </div>
+
+  </div><!-- /page-content -->
+</div><!-- /main-wrap -->
+
+<!-- ── Modal : désactiver capteur ─────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-disable">
+  <div class="modal-box">
+    <h3>Désactiver le capteur</h3>
+    <div class="modal-field">
+      <label>Raison (optionnel)</label>
+      <input class="modal-input" id="disable-note" type="text" placeholder="ex : débranché pour maintenance…" maxlength="120"/>
+    </div>
+    <p class="modal-sub">Les mesures continuent à être stockées. Aucune alarme ne sera déclenchée.</p>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-disable')">Annuler</button>
+      <button class="modal-btn modal-btn-warn"   onclick="executeDisable()">Désactiver</button>
     </div>
   </div>
-  <div id="sensors-charts"></div>
+</div>
 
-  <!-- Alerts -->
-  <div class="section-header">
-    <div class="section-title">Historique alarmes</div>
-  </div>
-  <div class="alerts-block">
-    <div class="alerts-block-header">
-      <span style="font-family:var(--font-mono);font-size:.7rem;color:var(--muted);letter-spacing:.06em">ALERT LOG</span>
-      <button class="btn-ack-all" onclick="acknowledgeAll()">✓ Acquitter tout</button>
+<!-- ── Modal : supprimer capteur ──────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-delete-sensor">
+  <div class="modal-box danger">
+    <h3>⚠ Supprimer le capteur ?</h3>
+    <p class="modal-p">Le capteur <strong id="delete-sensor-name" style="color:#fff"></strong> sera masqué.</p>
+    <p class="modal-sub">L'historique des mesures reste conservé en base.</p>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-delete-sensor')">Annuler</button>
+      <button class="modal-btn modal-btn-danger" onclick="executeDeleteSensor()">Supprimer</button>
     </div>
-    <div id="alerts-body"></div>
   </div>
+</div>
 
-</main>
+<!-- ── Modal : assigner unité ─────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-assign">
+  <div class="modal-box">
+    <h3>Assigner à une unité</h3>
+    <p class="modal-sub" id="assign-label"></p>
+    <div class="modal-field">
+      <label>Unité</label>
+      <select class="modal-select" id="assign-select">
+        <option value="">— Aucune unité —</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-assign')">Annuler</button>
+      <button class="modal-btn modal-btn-confirm" onclick="executeAssign()">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal : créer / éditer unité ───────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-unit-form">
+  <div class="modal-box">
+    <h3 id="unit-form-title">Nouvelle unité</h3>
+    <input type="hidden" id="unit-form-id"/>
+    <div class="modal-field">
+      <label>Nom *</label>
+      <input class="modal-input" id="unit-form-name" type="text" placeholder="ex : Frigo Pharmacie A"/>
+    </div>
+    <div class="modal-field">
+      <label>Type d'équipement</label>
+      <select class="modal-select" id="unit-form-type"></select>
+    </div>
+    <div class="modal-field">
+      <label>Service d'utilisation</label>
+      <select class="modal-select" id="unit-form-utilisation"></select>
+    </div>
+    <div class="modal-field">
+      <label>Service responsable</label>
+      <select class="modal-select" id="unit-form-responsable"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-unit-form')">Annuler</button>
+      <button class="modal-btn modal-btn-confirm" onclick="executeUnitForm()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal : supprimer unité ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-delete-unit">
+  <div class="modal-box danger">
+    <h3>⚠ Supprimer l'unité ?</h3>
+    <p class="modal-p">L'unité <strong id="delete-unit-name" style="color:#fff"></strong> sera supprimée.</p>
+    <p class="modal-sub">Les capteurs associés seront désassignés.</p>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-delete-unit')">Annuler</button>
+      <button class="modal-btn modal-btn-danger" onclick="executeDeleteUnit()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal : reset tous seuils ──────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-reset-all">
+  <div class="modal-box danger">
+    <h3>↺ Réinitialiser tous les seuils ?</h3>
+    <p class="modal-p">Tous les seuils seront réécrasés par les valeurs de <code style="color:var(--blue)">config.py</code>.</p>
+    <p class="modal-sub">Les modifications manuelles seront perdues.</p>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-reset-all')">Annuler</button>
+      <button class="modal-btn modal-btn-danger" onclick="executeResetAll()">Réinitialiser</button>
+    </div>
+  </div>
+</div>
 
 <script>
+// ══ Constants ════════════════════════════════════════════════════════════════
 const SENSORS = {
   1: { name: "STHP01A",         params: ["temp_c","hum_rh","pres_hpa"] },
   2: { name: "XYMD04 RS485",    params: ["temp_c","hum_rh"] },
@@ -576,98 +948,381 @@ const SENSORS = {
   4: { name: "PT100 Canal 2",   params: ["temp_c"] },
   5: { name: "XYMD04 RS485 #2", params: ["temp_c","hum_rh"] },
 };
-const PARAM_LABELS = {
-  temp_c:   "TEMPÉRATURE (°C)",
-  hum_rh:   "HUMIDITÉ (%RH)",
-  pres_hpa: "PRESSION (hPa)",
-};
-const PARAM_COLORS = {
-  temp_c:   "#3a9fd8",
-  hum_rh:   "#2ecc71",
-  pres_hpa: "#f39c12",
-};
+const PARAM_LABELS = { temp_c:"TEMPÉRATURE (°C)", hum_rh:"HUMIDITÉ (%RH)", pres_hpa:"PRESSION (hPa)" };
+const PARAM_UNITS  = { temp_c:"°C", hum_rh:"%RH", pres_hpa:"hPa" };
+const PARAM_COLORS = { temp_c:"#3a9fd8", hum_rh:"#2ecc71", pres_hpa:"#f39c12" };
 
-let charts = {};
-let currentPeriod = 24;
+// ══ State ════════════════════════════════════════════════════════════════════
+let charts        = {};
+let detailCharts  = {};
+let mainPeriod    = 24;
+let detailPeriod  = 24;
+let currentPage   = "dashboard";
+let detailSid     = null;
 
-function fmt(v, u) { return v == null ? "—" : v.toFixed(1) + " " + u; }
-function fmtAge(s) {
-  if (s < 60)   return `${s}s`;
-  if (s < 3600) return `${Math.round(s/60)} min`;
-  return `${Math.round(s/3600)} h`;
+let statsData       = [];
+let sensorConfigs   = {};
+let unitsData       = [];
+let formOptions     = { unit_types:[], services_utilisation:[], services_responsable:[] };
+let thresholdsData  = {};
+
+let pendingDisableSid   = null;
+let pendingDeleteSid    = null;
+let pendingAssignSid    = null;
+let pendingDeleteUnitId = null;
+
+// ══ Navigation ════════════════════════════════════════════════════════════════
+function navigate(page, el) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  document.getElementById("page-" + page).classList.add("active");
+  if (el) el.classList.add("active");
+  currentPage = page;
+  localStorage.setItem("currentPage", page);
+
+  const titles = { dashboard: "Dashboard", detail: "Détail capteur", management: "Management" };
+  document.getElementById("topbar-title").textContent = titles[page] || page;
+
+  if (page === "management") { renderMgmtSensors(); loadUnits(); }
+  if (page === "detail" && detailSid) loadDetailPage(detailSid);
 }
-function timeLabel(iso) {
-  const d = new Date(iso);
-  return d.getHours().toString().padStart(2,"0") + ":" +
-         d.getMinutes().toString().padStart(2,"0");
+
+// ══ Helpers ══════════════════════════════════════════════════════════════════
+const fmt      = (v, u) => v == null ? "—" : v.toFixed(1) + " " + u;
+const fmtAge   = s => s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s/60)} min` : `${Math.round(s/3600)} h`;
+const timeLabel = iso => { const d = new Date(iso); return d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0"); };
+
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+document.querySelectorAll(".modal-overlay").forEach(o => {
+  o.addEventListener("click", e => { if (e.target === o) o.classList.remove("open"); });
+});
+
+function populateSelect(id, options, withEmpty = false) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = (withEmpty ? '<option value="">—</option>' : "") +
+    options.map(o => `<option value="${o}">${o}</option>`).join("");
 }
 
-function setPeriod(h, btn) {
-  currentPeriod = h;
-  document.querySelectorAll(".period-tab").forEach(b => b.classList.remove("active"));
+function setPeriod(h, btn, ctx) {
+  const prefix = ctx === "detail" ? "detail" : "main";
+  const tabGroup = btn.closest(".controls").querySelectorAll(".period-tab");
+  tabGroup.forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
-  loadAllCharts();
+  if (ctx === "detail") { detailPeriod = h; loadDetailCharts(detailSid); }
+  else                  { mainPeriod = h;   loadAllCharts(); }
 }
 
-// ── Cards ────────────────────────────────────
-async function loadCards() {
-  const res   = await fetch("/stats");
-  const stats = await res.json();
+// ══ Data loading ══════════════════════════════════════════════════════════════
+async function loadAll() {
+  await Promise.all([
+    loadSensorConfigs(),
+    loadThresholds(),
+  ]);
+  loadStats();
+}
 
-  const anyOffline = stats.sensors.some(s => s.offline);
+async function loadStats() {
+  try {
+    const res = await fetch("/stats");
+    const j   = await res.json();
+    statsData = j.sensors || [];
+  } catch(e) { return; }
+
+  const anyOffline = statsData.some(s => s.offline && !s.deleted);
   document.getElementById("offline-banner").style.display = anyOffline ? "block" : "none";
+  document.getElementById("last-update").textContent = new Date().toLocaleTimeString("fr-BE");
+  document.getElementById("topbar-meta").textContent =
+    `${statsData.filter(s=>!s.deleted).length} capteurs · ${new Date().toLocaleTimeString("fr-BE")}`;
 
+  if (currentPage === "dashboard") renderCards();
+  if (currentPage === "detail" && detailSid) updateDetailValues(detailSid);
+}
+
+async function loadSensorConfigs() {
+  try {
+    const res = await fetch("/sensors/config");
+    const d   = await res.json();
+    sensorConfigs = {};
+    d.forEach(s => { sensorConfigs[s.sid] = s; });
+  } catch(e) {}
+}
+
+async function loadThresholds() {
+  try {
+    const res = await fetch("/thresholds");
+    const j   = await res.json();
+    thresholdsData = j.thresholds || {};
+  } catch(e) {}
+}
+
+async function loadUnits() {
+  try {
+    const res = await fetch("/units");
+    const j   = await res.json();
+    unitsData = j.units || [];
+  } catch(e) { unitsData = []; }
+  if (currentPage === "management") renderUnits();
+}
+
+async function loadFormOptions() {
+  try {
+    const res = await fetch("/units/form-options");
+    formOptions = await res.json();
+  } catch(e) {}
+}
+
+// ══ Dashboard — Cards ═════════════════════════════════════════════════════════
+function renderCards() {
   const grid = document.getElementById("cards");
   grid.innerHTML = "";
+  for (const s of statsData) {
+    if (s.deleted) continue;
+    const scfg       = sensorConfigs[s.sid] || { mode: "active" };
+    const mode = scfg.mode;
+    const isDisabled = mode === "disabled";
+    const isMaintenance = mode === "maintenance";
+    const offline    = s.offline && !isDisabled;
+    const alarm = !offline && mode === "active" && s.has_alarm;
 
-  for (const s of stats.sensors) {
-    const cfg     = SENSORS[s.sid] || { name: "SID " + s.sid };
-    const offline = s.offline;
-    const alarm   = !offline && s.has_alarm;
+    let sc, sl, cc;
+    if (mode == "disabled")   { sc="disabled"; sl="DÉSACTIVÉ"; cc="disabled"; }
+    else if (mode == "maintenance") { sc="maintenance";  sl="MAINTENANCE";   cc="maintenance";  }
+    else if (alarm)   { sc="alarm";    sl="ALARME";    cc="alarm";    }
+    else              { sc="ok";       sl="OK";        cc="ok";       }
 
-    let statusClass, statusLabel, cardClass;
-    if (offline)     { statusClass = "offline"; statusLabel = "OFFLINE"; cardClass = "offline"; }
-    else if (alarm)  { statusClass = "alarm";   statusLabel = "ALARME";  cardClass = "alarm";   }
-    else             { statusClass = "ok";       statusLabel = "OK";      cardClass = "ok";      }
+    const unitTag = s.unit_name
+      ? `<div class="card-unit-tag">📦 ${s.unit_name}</div>` : "";
 
     let metaRows = "";
     if (s.hum_rh   != null) metaRows += `<div class="card-meta-row"><span>HUM</span><span class="card-meta-val">${fmt(s.hum_rh,"%RH")}</span></div>`;
     if (s.pres_hpa != null) metaRows += `<div class="card-meta-row"><span>PRES</span><span class="card-meta-val">${fmt(s.pres_hpa,"hPa")}</span></div>`;
 
     grid.innerHTML += `
-      <div class="card ${cardClass}">
-        <div class="card-status ${statusClass}">${statusLabel}</div>
-        <div class="card-label">${cfg.name}</div>
-        <div class="card-temp ${offline ? "dim" : ""}">
+      <div class="card ${cc}" onclick="openDetail(${s.sid})">
+        <div class="card-status ${sc}">${sl}</div>
+        <div class="card-label">${s.sensor_name}</div>
+        ${unitTag}
+        <div class="card-temp ${offline||isDisabled?"dim":""}">
           ${s.temp_c != null ? s.temp_c.toFixed(1) : "—"}<sup>°C</sup>
         </div>
         ${metaRows ? `<div class="card-meta">${metaRows}</div>` : ""}
-        <div class="card-age ${offline ? "stale" : ""}">
-          ${offline ? "⚠ " : ""}${fmtAge(s.age_seconds)} ago
+        <div class="card-age ${offline?"stale":""}">
+          ${offline?"⚠ ":""}${fmtAge(s.age_seconds)} ago
         </div>
       </div>`;
   }
-  document.getElementById("last-update").textContent = new Date().toLocaleTimeString("fr-BE");
 }
 
-// ── Charts ───────────────────────────────────
-async function loadAllCharts() {
-  for (const c of Object.values(charts)) c.destroy();
-  charts = {};
-  document.getElementById("sensors-charts").innerHTML = "";
+// ══ Detail page ═══════════════════════════════════════════════════════════════
+function openDetail(sid) {
+  detailSid = sid;
+  navigate("detail", null);
+  loadDetailPage(sid);
+}
 
-  const statsRes   = await fetch("/stats");
-  const stats      = await statsRes.json();
-  const offlineSids = new Set(stats.sensors.filter(s => s.offline).map(s => s.sid));
+async function loadDetailPage(sid) {
+  const s    = statsData.find(x => x.sid === sid);
+  const scfg = sensorConfigs[sid] || { mode: "active" };
+  const mode = scfg.mode || "active";
+  const name = SENSORS[sid]?.name || `Capteur ${sid}`;
+
+  document.getElementById("detail-name").textContent = name;
+  document.getElementById("detail-sid").textContent  = `SID ${sid}`;
+  document.getElementById("detail-sensor-name-label").textContent = name;
+
+  // Badges
+  
+  const isDisabled = mode === "disabled";
+  const isMaintenance = mode === "maintenance";
+
+  let badgeHtml = "";
+
+  if (mode === "disabled") {
+      badgeHtml += `<span class="badge badge-disabled">OFF</span>`;
+
+  } else if (mode === "maintenance") {
+      badgeHtml += `<span class="badge badge-offline">MAINTENANCE</span>`;
+
+  } else if (s?.offline) {
+      badgeHtml += `<span class="badge badge-offline">HORS LIGNE</span>`;
+
+  } else if (s?.has_alarm) {
+      badgeHtml += `<span class="badge badge-alarm">ALARME</span>`;
+
+  } else {
+      badgeHtml += `<span class="badge badge-ok">OK</span>`;
+  }                   badgeHtml += `<span class="badge badge-ok">OK</span>`;
+
+  document.getElementById("detail-badges").innerHTML = badgeHtml;
+
+  if (s) updateDetailValues(sid);
+  loadDetailUnit(sid, s);
+  loadDetailCharts(sid);
+  loadDetailAlerts(sid);
+}
+
+function updateDetailValues(sid) {
+  const s    = statsData.find(x => x.sid === sid);
+  if (!s) return;
+  const thr  = thresholdsData[sid] || {};
+  const params = SENSORS[sid]?.params || [];
+
+  document.getElementById("detail-values").innerHTML = params.map(p => {
+    const val     = s[p];
+    const t       = thr[p];
+    const isAlarm = t && val != null && (val < t.vmin || val > t.vmax);
+    const thrTxt  = t ? `Seuil : [${t.vmin}, ${t.vmax}] ${PARAM_UNITS[p]}` : "";
+    return `
+      <div class="detail-val-card">
+        <div class="detail-val-label">${PARAM_LABELS[p]}</div>
+        <div class="detail-val-num ${isAlarm?"alarm-val":""}">
+          ${val != null ? val.toFixed(1) : "—"}<sup>${PARAM_UNITS[p]||""}</sup>
+        </div>
+        <div class="detail-val-thr">${thrTxt}</div>
+      </div>`;
+  }).join("");
+}
+
+function loadDetailUnit(sid, s) {
+  const box = document.getElementById("detail-unit-box");
+  if (!s || !s.unit_name) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  document.getElementById("detail-unit-fields").innerHTML = `
+    <div class="detail-unit-field">
+      <div class="detail-unit-field-label">Nom</div>
+      <div class="detail-unit-field-val">${s.unit_name}</div>
+    </div>
+    <div class="detail-unit-field">
+      <div class="detail-unit-field-label">Type</div>
+      <div class="detail-unit-field-val">${s.unit_type || "—"}</div>
+    </div>
+    <div class="detail-unit-field">
+      <div class="detail-unit-field-label">Service d'utilisation</div>
+      <div class="detail-unit-field-val">${s.unit_service_utilisation || "—"}</div>
+    </div>
+    <div class="detail-unit-field">
+      <div class="detail-unit-field-label">Service responsable</div>
+      <div class="detail-unit-field-val">${s.unit_service_responsable || "—"}</div>
+    </div>`;
+}
+
+async function loadDetailCharts(sid) {
+  Object.values(detailCharts).forEach(c => c.destroy());
+  detailCharts = {};
+  const container = document.getElementById("detail-charts");
+  container.innerHTML = "";
+
+  const cfg = SENSORS[sid];
+  if (!cfg) return;
+
+  const res = await fetch(`/history/${sid}?hours=${detailPeriod}`);
+  const j   = await res.json();
+  if (!j.count) { container.innerHTML = '<div class="no-data">Aucune donnée sur cette période</div>'; return; }
+
+  const scfg = sensorConfigs[sid] || { mode: "active" };
+  const mode = scfg.mode || "active";
+  const isDisabled = mode === "disabled";
+  const isMaintenance = mode === "maintenance";
+  const panelsHtml = cfg.params.map(p => `
+    <div class="chart-panel">
+      <div class="chart-param-label">${PARAM_LABELS[p]}</div>
+      <div class="chart-container"><canvas id="dc-${sid}-${p}"></canvas></div>
+    </div>`).join("");
+
+  container.innerHTML = `
+    <div class="sensor-block">
+      <div class="sensor-block-header">
+        <div class="sensor-block-name">${cfg.name}</div>
+        <span class="sid-tag">SID ${sid}</span>
+
+        ${mode === "disabled"
+            ? '<span class="offline-tag">OFF</span>'
+            : mode === "maintenance"
+                ? '<span class="offline-tag">MAINTENANCE</span>'
+              : ""
+         }
+
+      </div>
+      <div class="charts-row" style="grid-template-columns:repeat(${cfg.params.length},1fr)">
+        ${panelsHtml}
+      </div>
+    </div>`;
+
+  await new Promise(r => requestAnimationFrame(r));
+  await new Promise(r => setTimeout(r, 20));
+
+  const labels = j.data.map(r => timeLabel(r.received_at));
+  for (const param of cfg.params) {
+    const canvas = document.getElementById(`dc-${sid}-${param}`);
+    if (!canvas) continue;
+    const color = (isDisabled || isMaintenance)
+        ? "#2a3a4a"
+        : PARAM_COLORS[param];
+
+    detailCharts[param] = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: { labels, datasets: [{ data: j.data.map(r => r[param]), borderColor: color, backgroundColor: color + "18", borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3, tension: 0.3, fill: true }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false }, tooltip: { backgroundColor:"#0d1219", borderColor:"#1e2d3d", borderWidth:1, titleColor:"#4a6070", bodyColor:"#c8d8e8", cornerRadius:8, titleFont:{family:"'Share Tech Mono'"}, bodyFont:{family:"'Share Tech Mono'"} } },
+        scales: {
+          x: { ticks: { color:"#2a3a4a", maxTicksLimit:6, font:{family:"'Share Tech Mono'",size:10} }, grid:{color:"#0f1820"} },
+          y: { ticks: { color:"#2a3a4a", font:{family:"'Share Tech Mono'",size:10} }, grid:{color:"#0f1820"} },
+        }
+      }
+    });
+  }
+}
+
+async function loadDetailAlerts(sid) {
+  const res  = await fetch(`/alerts?limit=20`);
+  const json = await res.json();
+  const cont = document.getElementById("detail-alerts-body");
+  const filtered = (json.alerts || []).filter(a => a.sid === sid);
+
+  if (!filtered.length) { cont.innerHTML = '<div class="no-data">Aucune alarme pour ce capteur</div>'; return; }
+
+  let html = `<table><thead><tr><th>Horodatage</th><th>Paramètre</th><th>Valeur</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody>`;
+  for (const a of filtered) {
+    const t = new Date(a.triggered_at).toLocaleString("fr-BE");
+    const isAcked = a.acknowledged === 1;
+    const ackedAt = isAcked ? new Date(a.acknowledged_at).toLocaleTimeString("fr-BE") : "";
+    html += `<tr class="${isAcked?"acked":""}">
+      <td>${t}</td><td>${a.param}</td>
+      <td class="${isAcked?"":"val-alarm"}">${a.value.toFixed(1)}</td>
+      <td>${a.threshold}</td>
+      <td>${isAcked ? `<span class="status-acked">✓ ${ackedAt}</span>` : `<span class="status-active">ACTIVE</span>`}</td>
+      <td>${!isAcked ? `<button class="btn-ack" onclick="ackOne(${a.id})">ACK</button>` : ""}</td>
+    </tr>`;
+  }
+  cont.innerHTML = html + "</tbody></table>";
+}
+
+// ══ Main charts ══════════════════════════════════════════════════════════════
+async function loadAllCharts() {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+  const container = document.getElementById("sensors-charts");
+  container.innerHTML = "";
+
+  const offlineSids = new Set(statsData.filter(s => s.offline).map(s => s.sid));
+  const unitMap     = {};
+  statsData.forEach(s => { if (s.unit_name) unitMap[s.sid] = s.unit_name; });
 
   for (const [sidStr, cfg] of Object.entries(SENSORS)) {
-    const sid = parseInt(sidStr);
-    const res = await fetch(`/history/${sid}?hours=${currentPeriod}`);
+    const sid  = parseInt(sidStr);
+    const scfg = sensorConfigs[sid] || { mode: "active", deleted: false };
+    if (scfg.deleted) continue;
+
+    const mode = scfg.mode || "active";
+    const res = await fetch(`/history/${sid}?hours=${mainPeriod}`);
     const j   = await res.json();
     if (!j.count) continue;
 
-    const isOffline = offlineSids.has(sid);
-    const ncols     = cfg.params.length;
+    const isOffline  = offlineSids.has(sid);
+    const isDisabled = (mode === "disabled");
+    const isMaintenance = mode === "maintenance";
+    const ncols      = cfg.params.length;
 
     const panelsHtml = cfg.params.map(p => `
       <div class="chart-panel">
@@ -675,12 +1330,21 @@ async function loadAllCharts() {
         <div class="chart-container"><canvas id="c-${sid}-${p}"></canvas></div>
       </div>`).join("");
 
-    document.getElementById("sensors-charts").innerHTML += `
-      <div class="sensor-block ${isOffline ? "offline" : ""}">
+    container.innerHTML += `
+      <div class="sensor-block ${isOffline||isDisabled?"offline":""}">
         <div class="sensor-block-header">
           <div class="sensor-block-name">${cfg.name}</div>
           <span class="sid-tag">SID ${sid}</span>
-          ${isOffline ? '<span class="offline-tag">HORS LIGNE</span>' : ""}
+          
+          ${isDisabled 
+              ? '<span class="offline-tag">OFF</span>' 
+              : isMaintenance
+                  ? '<span class="offline-tag">MAINTENANCE</span>'
+                  : isOffline
+                      ? '<span class="offline-tag">HORS LIGNE</span>'
+                      : ""
+          }
+          ${unitMap[sid] ? `<span class="sensor-block-unit">📦 ${unitMap[sid]}</span>` : ""}
         </div>
         <div class="charts-row" style="grid-template-columns:repeat(${ncols},1fr)">
           ${panelsHtml}
@@ -692,115 +1356,396 @@ async function loadAllCharts() {
   await new Promise(r => setTimeout(r, 30));
 
   for (const [sidStr, cfg] of Object.entries(SENSORS)) {
-    const sid = parseInt(sidStr);
-    const res = await fetch(`/history/${sid}?hours=${currentPeriod}`);
+    const sid  = parseInt(sidStr);
+    const scfg = sensorConfigs[sid] || { mode: "active", deleted: false };
+    if (scfg.deleted) continue;
+
+    const mode = scfg.mode || "active";
+    const res = await fetch(`/history/${sid}?hours=${mainPeriod}`);
     const j   = await res.json();
     if (!j.count) continue;
 
-    const labels    = j.data.map(r => timeLabel(r.received_at));
-    const isOffline = offlineSids.has(sid);
+    const labels     = j.data.map(r => timeLabel(r.received_at));
+    const isOffline  = statsData.some(s => s.sid === sid && s.offline);
+    const isDisabled    = mode === "disabled";
+    const isMaintenance = mode === "maintenance";
+
 
     for (const param of cfg.params) {
       const canvas = document.getElementById(`c-${sid}-${param}`);
       if (!canvas) continue;
-      const color = isOffline ? "#2a3a4a" : PARAM_COLORS[param];
+      const color = (isOffline || isDisabled || isMaintenance) ? "#2a3a4a" : PARAM_COLORS[param];
+      
       charts[`${sid}-${param}`] = new Chart(canvas.getContext("2d"), {
-        type: "line",
-        data: {
-          labels,
-          datasets: [{
-            data: j.data.map(r => r[param]),
-            borderColor: color,
-            backgroundColor: color + "18",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            pointHoverRadius: 3,
-            tension: 0.3,
-            fill: true,
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
-          plugins: { legend: { display: false }, tooltip: {
-            backgroundColor: "#0d1219",
-            borderColor: "#1e2d3d",
-            borderWidth: 1,
-            titleColor: "#4a6070",
-            bodyColor: "#c8d8e8",
-            cornerRadius: 8,
-            titleFont: { family: "'Share Tech Mono'" },
-            bodyFont:  { family: "'Share Tech Mono'" },
-          }},
-          scales: {
-            x: { ticks: { color: "#2a3a4a", maxTicksLimit: 6, font: { family: "'Share Tech Mono'", size: 10 } }, grid: { color: "#0f1820" } },
-            y: { ticks: { color: "#2a3a4a", font: { family: "'Share Tech Mono'", size: 10 } }, grid: { color: "#0f1820" } },
-          }
+            type: "line",
+            data: {
+              labels,
+              datasets: [{
+                data: j.data.map(r => r[param]),
+                borderColor: color,
+                backgroundColor: color + "18",
+                borderWidth: 1.5,
+                pointRadius: 0,
+                pointHoverRadius: 3,
+                tension: 0.3,
+                fill: true
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              plugins: {
+                legend: { display: false }
+              },
+              scales: {
+                x: { ticks: { color:"#2a3a4a" } },
+                y: { ticks: { color:"#2a3a4a" } }
+              }
+            }
+          });
         }
-      });
+      }
     }
-  }
-}
 
-// ── Alerts ───────────────────────────────────
+
+// ══ Alerts ════════════════════════════════════════════════════════════════════
 async function loadAlerts() {
   const res  = await fetch("/alerts?limit=40");
   const json = await res.json();
   const cont = document.getElementById("alerts-body");
 
-  if (!json.alerts.length) {
-    cont.innerHTML = '<div class="no-data">// AUCUNE ALARME ENREGISTRÉE</div>';
-    return;
-  }
+  if (!json.alerts.length) { cont.innerHTML = '<div class="no-data">// AUCUNE ALARME ENREGISTRÉE</div>'; return; }
 
-  let html = `<table><thead><tr>
-    <th>Horodatage</th><th>Capteur</th><th>Paramètre</th>
-    <th>Valeur</th><th>Seuil</th><th>Statut</th><th></th>
-  </tr></thead><tbody>`;
-
+  let html = `<table><thead><tr><th>Horodatage</th><th>Capteur</th><th>Paramètre</th><th>Valeur</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody>`;
   for (const a of json.alerts) {
-    const t       = new Date(a.triggered_at).toLocaleString("fr-BE");
-    const name    = (SENSORS[a.sid] || { name: "sid " + a.sid }).name;
+    const t = new Date(a.triggered_at).toLocaleString("fr-BE");
     const isAcked = a.acknowledged === 1;
     const ackedAt = isAcked ? new Date(a.acknowledged_at).toLocaleTimeString("fr-BE") : "";
-
-    html += `<tr class="${isAcked ? "acked" : ""}">
-      <td>${t}</td>
-      <td>${name}</td>
-      <td>${a.param}</td>
-      <td class="${isAcked ? "" : "val-alarm"}">${a.value.toFixed(1)}</td>
+    html += `<tr class="${isAcked?"acked":""}">
+      <td>${t}</td><td>${a.sensor_name||"sid "+a.sid}</td><td>${a.param}</td>
+      <td class="${isAcked?"":"val-alarm"}">${a.value.toFixed(1)}</td>
       <td>${a.threshold}</td>
-      <td>${isAcked
-        ? `<span class="status-acked">✓ ${ackedAt}</span>`
-        : `<span class="status-active">ACTIVE</span>`
-      }</td>
-      <td>${!isAcked
-        ? `<button class="btn-ack" onclick="ackOne(${a.id})">ACK</button>`
-        : ""
-      }</td>
+      <td>${isAcked?`<span class="status-acked">✓ ${ackedAt}</span>`:`<span class="status-active">ACTIVE</span>`}</td>
+      <td>${!isAcked?`<button class="btn-ack" onclick="ackOne(${a.id})">ACK</button>`:""}</td>
     </tr>`;
   }
   cont.innerHTML = html + "</tbody></table>";
 }
 
 async function ackOne(id) {
-  await fetch(`/alerts/${id}/acknowledge`, { method: "POST" });
-  loadCards(); loadAlerts();
+  await fetch(`/alerts/${id}/acknowledge`, { method:"POST" });
+  loadStats(); loadAlerts();
+  if (currentPage === "detail" && detailSid) loadDetailAlerts(detailSid);
 }
 async function acknowledgeAll() {
-  await fetch("/alerts/acknowledge-all", { method: "POST" });
-  loadCards(); loadAlerts();
+  await fetch("/alerts/acknowledge-all", { method:"POST" });
+  loadStats(); loadAlerts();
 }
 
-// ── Init ─────────────────────────────────────
-async function refresh() { await loadCards(); await loadAlerts(); }
+// ══ Management — Sensors ══════════════════════════════════════════════════════
+function renderMgmtSensors() {
+  const grid = document.getElementById("mgmt-sensors");
+  grid.innerHTML = "";
 
-loadCards();
-loadAllCharts();
-loadAlerts();
-setInterval(refresh, 10000);
-setInterval(loadAllCharts, 60000);
+  for (const [sidStr, cfg] of Object.entries(SENSORS)) {
+    const sid  = parseInt(sidStr);
+    const scfg = sensorConfigs[sid] || { mode: "active", deleted: false, note: null, unit_id: null };
+    const mode = scfg.mode || "active";
+
+    const isDeleted     = scfg.deleted;
+    const isDisabled    = mode === "disabled";
+    const isMaintenance = mode === "maintenance";
+
+    const thr = thresholdsData[sid] || {};
+    const s   = statsData.find(x => x.sid === sid);
+
+    const unit = unitsData.find(u => u.unit_id === scfg.unit_id);
+    const unitName = unit ? unit.name : "—";
+
+    // Seuils
+    const thrRows = Object.entries(thr).map(([param, t]) => `
+      <div class="thr-row">
+        <span class="thr-param-label">${PARAM_UNITS[param] || param}</span>
+        <input class="thr-input" id="thr-${sid}-${param}-min" value="${t.vmin}">
+        <span class="thr-sep">→</span>
+        <input class="thr-input" id="thr-${sid}-${param}-max" value="${t.vmax}">
+        <button class="thr-save" onclick="saveThreshold(${sid},'${param}')">SAUVER</button>
+      </div>
+    `).join("");
+
+    // Label statut
+    const statusLabel =
+      mode === "disabled" ? "OFF" :
+      mode === "maintenance" ? "MAINTENANCE" :
+      "ACTIF";
+
+    const statusColor =
+      mode === "disabled" ? "var(--muted)" :
+      mode === "maintenance" ? "var(--amber)" :
+      "var(--green)";
+
+    grid.innerHTML += `
+      <div class="mgmt-card" ${isDeleted ? "style='opacity:.4'" : ""}>
+        <div class="mgmt-card-header">
+          <div class="mgmt-card-title">${cfg.name}</div>
+          <div class="mgmt-card-sid">SID ${sid}</div>
+        </div>
+
+        <div class="mgmt-card-body">
+
+          <!-- STATUT -->
+          <div class="mgmt-row">
+            <span class="mgmt-row-label">Statut</span>
+
+            ${
+              isDeleted
+                ? `<span style="font-size:.6rem;color:var(--muted)">SUPPRIMÉ</span>`
+                : `
+                  <label class="toggle" title="${
+                    mode === "disabled"
+                      ? "Activer"
+                      : mode === "maintenance"
+                        ? "Repasser actif"
+                        : "Désactiver"
+                  }">
+                    <input type="checkbox" ${mode === "active" ? "checked" : ""} onchange="toggleSensor(${sid}, this)">
+                    <span class="toggle-slider"></span>
+                  </label>
+
+                  <span style="font-size:.6rem;color:${statusColor}">
+                    ${statusLabel}
+                  </span>
+                `
+            }
+          </div>
+
+          <!-- UNITÉ -->
+          <div class="mgmt-row">
+            <span class="mgmt-row-label">Unité</span>
+            <span class="mgmt-row-val">${unitName}</span>
+            ${
+              !isDeleted
+                ? `<button class="thr-save" onclick="openAssignModal(${sid})">CHANGER</button>`
+                : ""
+            }
+          </div>
+
+          ${
+            scfg.note
+              ? `<div class="mgmt-row">
+                   <span class="mgmt-row-label">Note</span>
+                   <span class="mgmt-row-val" style="color:var(--muted)">${scfg.note}</span>
+                 </div>`
+              : ""
+          }
+
+          ${
+            thrRows
+              ? `
+              <div style="font-size:.55rem;color:var(--muted)">Seuils</div>
+              <div class="thr-grid">
+                ${thrRows}
+                <div style="text-align:right">
+                  <button class="thr-reset" onclick="resetSensorThresholds(${sid})">↺ Reset</button>
+                </div>
+              </div>`
+              : ""
+          }
+
+          <!-- ACTIONS -->
+          <div class="mgmt-actions">
+            ${
+              isDeleted
+                ? `<button class="btn-mgmt btn-restore" onclick="restoreSensor(${sid})">↺ Restaurer</button>`
+                : `<button class="btn-mgmt btn-del" onclick="openDeleteSensorModal(${sid})">🗑 Supprimer</button>`
+            }
+          </div>
+
+        </div>
+      </div>
+    `;
+  }
+}
+
+
+async function toggleSensor(sid, checkbox) {
+  const isActive = checkbox.checked;
+
+  if (!isActive) {
+    checkbox.checked = true;
+    pendingDisableSid = sid;
+
+    document.getElementById("disable-note").value = "";
+    document.getElementById("modal-disable").classList.add("open");
+    return;
+  }
+
+  await fetch(`/sensors/${sid}/mode`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ mode: "active" })
+  });
+
+  await loadSensorConfigs();
+  renderMgmtSensors();
+}
+
+async function executeDisable() {
+  const note = document.getElementById("disable-note").value || null;
+
+  await fetch(`/sensors/${pendingDisableSid}/mode`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ mode: "disabled", note })
+  });
+
+  closeModal("modal-disable");
+  pendingDisableSid = null;
+
+  await loadSensorConfigs();
+  renderMgmtSensors();
+}
+
+// ══ Thresholds ════════════════════════════════════════════════════════════════
+async function saveThreshold(sid, param) {
+  const vmin = parseFloat(document.getElementById(`thr-${sid}-${param}-min`).value);
+  const vmax = parseFloat(document.getElementById(`thr-${sid}-${param}-max`).value);
+  if (isNaN(vmin) || isNaN(vmax) || vmin >= vmax) {
+    alert("Valeurs invalides : vmin doit être strictement inférieur à vmax."); return;
+  }
+  await fetch(`/thresholds/${sid}/${param}`, {
+    method:"PUT", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ vmin, vmax }),
+  });
+  await loadThresholds();
+  renderMgmtSensors();
+}
+
+async function resetSensorThresholds(sid) {
+  await fetch(`/thresholds/${sid}/reset`, { method:"POST" });
+  await loadThresholds(); renderMgmtSensors();
+}
+
+function confirmResetAll() {
+  document.getElementById("modal-reset-all").classList.add("open");
+}
+async function executeResetAll() {
+  await fetch("/thresholds/reset-all", { method:"POST" });
+  closeModal("modal-reset-all");
+  await loadThresholds(); renderMgmtSensors();
+}
+
+// ══ Units ══════════════════════════════════════════════════════════════════════
+function renderUnits() {
+  const grid = document.getElementById("mgmt-units");
+  if (!unitsData.length) { grid.innerHTML = '<div class="no-data">// AUCUNE UNITÉ DÉFINIE</div>'; return; }
+  grid.innerHTML = unitsData.map(u => {
+    const sidsHtml = u.sids?.length
+      ? u.sids.map(sid => `<span class="sensor-chip">${SENSORS[sid]?.name||"SID "+sid}</span>`).join("")
+      : `<span class="sensor-chip none">Aucun capteur</span>`;
+    return `
+    <div class="unit-card">
+      <div class="unit-card-name">${u.name}</div>
+      <div class="unit-card-type">${u.unit_type||"—"}</div>
+      <div class="unit-card-info">
+        <div class="unit-info-row"><span>UTILISATION</span><span>${u.service_utilisation||"—"}</span></div>
+        <div class="unit-info-row"><span>RESPONSABLE</span><span>${u.service_responsable||"—"}</span></div>
+      </div>
+      <div class="unit-sensors">${sidsHtml}</div>
+      <div class="unit-actions">
+        <button class="btn-unit" onclick="openUnitModal(${u.unit_id})">✏ Modifier</button>
+        <button class="btn-unit del" onclick="openDeleteUnitModal(${u.unit_id},'${u.name.replace(/'/g,"\\'")}')">🗑</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function openUnitModal(unit_id = null) {
+  populateSelect("unit-form-type",        formOptions.unit_types,           true);
+  populateSelect("unit-form-utilisation", formOptions.services_utilisation, true);
+  populateSelect("unit-form-responsable", formOptions.services_responsable, true);
+
+  if (unit_id) {
+    const u = unitsData.find(x => x.unit_id === unit_id);
+    if (!u) return;
+    document.getElementById("unit-form-title").textContent          = "Modifier l'unité";
+    document.getElementById("unit-form-id").value                   = unit_id;
+    document.getElementById("unit-form-name").value                 = u.name;
+    document.getElementById("unit-form-type").value                 = u.unit_type || "";
+    document.getElementById("unit-form-utilisation").value          = u.service_utilisation || "";
+    document.getElementById("unit-form-responsable").value          = u.service_responsable || "";
+  } else {
+    document.getElementById("unit-form-title").textContent = "Nouvelle unité";
+    document.getElementById("unit-form-id").value          = "";
+    document.getElementById("unit-form-name").value        = "";
+  }
+  document.getElementById("modal-unit-form").classList.add("open");
+  setTimeout(() => document.getElementById("unit-form-name").focus(), 80);
+}
+
+async function executeUnitForm() {
+  const id   = document.getElementById("unit-form-id").value;
+  const body = JSON.stringify({
+    name:                document.getElementById("unit-form-name").value.trim(),
+    unit_type:           document.getElementById("unit-form-type").value,
+    service_utilisation: document.getElementById("unit-form-utilisation").value,
+    service_responsable: document.getElementById("unit-form-responsable").value,
+  });
+  const h = { "Content-Type": "application/json" };
+  if (id) await fetch(`/units/${id}`, { method:"PUT",  headers:h, body });
+  else    await fetch(`/units`,        { method:"POST", headers:h, body });
+  closeModal("modal-unit-form");
+  await loadUnits(); renderMgmtSensors(); renderCards();
+}
+
+function openDeleteUnitModal(id, name) {
+  pendingDeleteUnitId = id;
+  document.getElementById("delete-unit-name").textContent = name;
+  document.getElementById("modal-delete-unit").classList.add("open");
+}
+async function executeDeleteUnit() {
+  if (!pendingDeleteUnitId) return;
+  await fetch(`/units/${pendingDeleteUnitId}`, { method:"DELETE" });
+  closeModal("modal-delete-unit"); pendingDeleteUnitId = null;
+  await loadUnits(); await loadSensorConfigs(); renderMgmtSensors(); renderCards();
+}
+
+// ══ Init & refresh ════════════════════════════════════════════════════════════
+async function init() {
+  await Promise.all([
+    loadFormOptions(),
+    loadSensorConfigs(),
+    loadThresholds(),
+    loadUnits()
+  ]);
+
+  await loadStats();
+
+  // ✅ AJOUT (important)
+  const savedPage = localStorage.getItem("currentPage") || "dashboard";
+  navigate(savedPage);
+
+  loadAllCharts();
+  loadAlerts();
+}
+
+async function refresh() {
+  await loadSensorConfigs();
+  await loadThresholds();
+  await loadStats();
+  loadAlerts();
+  if (currentPage === "management") renderMgmtSensors();
+  if (currentPage === "detail" && detailSid) {
+    updateDetailValues(detailSid);
+    loadDetailAlerts(detailSid);
+  }
+}
+
+init();
+setInterval(refresh,       10_000);
+setInterval(loadAllCharts, 60_000);
+setInterval(loadUnits,     30_000);
 </script>
 </body>
 </html>

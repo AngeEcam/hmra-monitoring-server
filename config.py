@@ -37,3 +37,45 @@ PARAM_LABELS = {
     "hum_rh":   "Humidité (%RH)",
     "pres_hpa": "Pression (hPa)",
 }
+
+# ─────────────────────────────────────────────
+#  UNITÉS — Types d'équipements surveillés
+# ─────────────────────────────────────────────
+
+UNIT_TYPES = [
+    "Réfrigérateur",
+    "Congélateur",
+    "Incubateur",
+    "Four",
+    "Local technique",
+    "Salle blanche",
+    "Autre",
+]
+
+# ─────────────────────────────────────────────
+#  SERVICES — Listes déroulantes dashboard
+# ─────────────────────────────────────────────
+
+# Service qui utilise physiquement l'équipement
+SERVICES_UTILISATION = [
+    "Pharmacie",
+    "Burn Unit",
+    "Laboratoire",
+    "Stérilisation (STERAP)",
+    "Médecine du travail (AMT)",
+    "Travel Clinic",
+    "Centre de santé mentale",
+    "Service vétérinaire",
+    "Service technique biomédical",
+    "Autre",
+]
+
+# Service administrativement responsable de l'équipement
+SERVICES_RESPONSABLE = [
+    "Service technique biomédical",
+    "Pharmacie",
+    "Laboratoire",
+    "Direction médicale",
+    "Stérilisation (STERAP)",
+    "Autre",
+]
