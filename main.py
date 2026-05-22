@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from config import (
-    PORT, HOST, SENSOR_NAMES, OFFLINE_THRESHOLD_S,
+    PORT, HOST, OFFLINE_THRESHOLD_S,
     UNIT_TYPES, SERVICES_UTILISATION, SERVICES_RESPONSABLE,
 )
 from database import (
@@ -34,8 +34,8 @@ from database import (
     count_measurements,
     get_sensor_config,
     set_sensor_mode,
+    rename_sensor,
     delete_sensor,
-    restore_sensor,
     get_all_units,
     get_unit,
     create_unit,
@@ -103,7 +103,7 @@ async def ingest(request: Request):
         alerts = check_and_log_alerts(data, received_at)
 
     # logs
-    name = SENSOR_NAMES.get(sid, f"sid={sid}")
+    name = cfg.get("name") or f"Capteur {sid}"
     now  = datetime.now().strftime("%H:%M:%S")
 
     label = {
@@ -150,7 +150,7 @@ async def get_stats():
         sid = r["sid"]
         cfg = sensor_cfg.get(sid, {"mode": "active", "deleted": False, "note": None, "unit_id": None})
 
-        r["sensor_name"] = SENSOR_NAMES.get(sid, "Inconnu")
+        r["sensor_name"] = cfg.get("name") or f"Capteur {sid}"
 
         mode = cfg["mode"]
         r["mode"] = mode
@@ -179,8 +179,11 @@ async def get_alerts(
     active_only: bool = Query(False),
 ):
     rows = query_alerts(limit=limit, only_active=active_only)
+    sensor_cfg = get_sensor_config()
     for r in rows:
-        r["sensor_name"] = SENSOR_NAMES.get(r["sid"], "Inconnu")
+        sid = r["sid"]
+        cfg = sensor_cfg.get(sid, {})
+        r["sensor_name"] = cfg.get("name") or f"Capteur {sid}"
     return {"count": len(rows), "alerts": rows}
 
 
@@ -270,11 +273,10 @@ async def sensors_config():
     cfg        = get_sensor_config()
     thresholds = get_all_thresholds()
     result     = []
-    for sid, name in SENSOR_NAMES.items():
-        entry = cfg.get(sid, {"mode": "active", "deleted": False, "note": None, "unit_id": None})
+    for sid, entry in cfg.items():
         result.append({
             "sid":        sid,
-            "name":       name,
+            "name":       entry.get("name") or f"Capteur {sid}",
             "mode":       entry["mode"],
             "deleted":    entry["deleted"],
             "note":       entry["note"],
@@ -310,8 +312,27 @@ async def set_sensor_mode_endpoint(sid: int, request: Request):
         "disabled": "OFF"
     }[mode]
 
-
     return {"status": "ok", "sid": sid, "mode": mode, "message": f"Capteur {sid} {label}"}
+
+
+@app.put("/sensors/{sid}/name")
+async def rename_sensor_endpoint(sid: int, request: Request):
+    """
+    Renomme un capteur.
+    Body JSON : {"name": "Frigo Pharmacie"}
+    """
+    body = await request.body()
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except Exception:
+        return {"status": "error", "detail": "JSON invalide"}
+
+    name = payload.get("name", "").strip()
+    if not name:
+        return {"status": "error", "detail": "Le nom ne peut pas être vide"}
+
+    rename_sensor(sid, name)
+    return {"status": "ok", "sid": sid, "name": name}
 
 
 @app.delete("/sensors/{sid}")
@@ -319,13 +340,6 @@ async def remove_sensor(sid: int):
     """Soft-delete : masque le capteur sans effacer l'historique."""
     delete_sensor(sid)
     return {"status": "ok", "sid": sid, "message": f"Capteur {sid} supprimé"}
-
-
-@app.post("/sensors/{sid}/restore")
-async def restore_sensor_endpoint(sid: int):
-    """Restaure un capteur précédemment supprimé."""
-    restore_sensor(sid)
-    return {"status": "ok", "sid": sid, "message": f"Capteur {sid} restauré"}
 
 
 @app.post("/sensors/{sid}/assign-unit")

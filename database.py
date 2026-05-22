@@ -50,10 +50,11 @@ def init_db():
     conn.execute("""
         CREATE TABLE IF NOT EXISTS sensor_config (
             sid                   INTEGER PRIMARY KEY,
-            mode                  TEXT NOT NULL DEFAULT "active",  
+            mode                  TEXT NOT NULL DEFAULT "active",
             deleted               INTEGER DEFAULT 0,
             note                  TEXT,
-            unit_id               INTEGER
+            unit_id               INTEGER,
+            name                  TEXT
         )
     """)
     conn.execute("""
@@ -72,8 +73,11 @@ def init_db():
     migrations = [
     ("alert_log",    "acknowledged",    "INTEGER DEFAULT 0"),
     ("alert_log",    "acknowledged_at", "TEXT"),
+    ("alert_log",    "auto_resolved",   "INTEGER DEFAULT 0"),
+    ("alert_log",    "resolved_at",     "TEXT"),
     ("sensor_config","unit_id",         "INTEGER"),
     ("sensor_config","mode",            "TEXT DEFAULT 'active'"),
+    ("sensor_config","name",            "TEXT"),
     ]
 
     for table, col, default in migrations:
@@ -92,7 +96,43 @@ def init_db():
 
     # Seeder les seuils depuis config.py (uniquement les absents)
     _seed_thresholds()
+    # Seeder les noms depuis config.py (uniquement si pas encore de nom en base)
+    _seed_sensor_names()
     print(f"[DB] Base initialisée : {os.path.abspath(DB_PATH)}")
+
+
+def _seed_sensor_names():
+    """
+    Insere les noms de SENSOR_NAMES une seule fois (premiere init).
+    Si le flag sensor_names_seeded est deja en base, ne fait rien.
+    Les suppressions faites par l'utilisateur ne sont donc jamais ecrasees.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS meta (
+            key   TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
+    already = conn.execute(
+        "SELECT 1 FROM meta WHERE key = 'sensor_names_seeded'"
+    ).fetchone()
+    if not already:
+        for sid, name in SENSOR_NAMES.items():
+            conn.execute("""
+                INSERT INTO sensor_config (sid, name)
+                VALUES (?, ?)
+                ON CONFLICT(sid) DO UPDATE SET
+                    name = CASE
+                        WHEN sensor_config.name IS NULL OR sensor_config.name = ''
+                        THEN excluded.name
+                        ELSE sensor_config.name
+                    END
+            """, (sid, name))
+        conn.execute("INSERT INTO meta (key, value) VALUES ('sensor_names_seeded', '1')")
+        print("[DB] Seed noms capteurs effectue (premiere init)")
+    conn.commit()
+    conn.close()
 
 
 def _seed_thresholds():
@@ -117,12 +157,19 @@ def _seed_thresholds():
 # ── Écriture mesures ──────────────────────────────────────────────────────────
 
 def insert_measurement(data: dict, received_at: str):
+    sid = data.get("sid")
     conn = sqlite3.connect(DB_PATH)
+    # Enregistrer automatiquement le capteur s'il est inconnu
+    conn.execute("""
+        INSERT INTO sensor_config (sid, mode)
+        VALUES (?, 'active')
+        ON CONFLICT(sid) DO NOTHING
+    """, (sid,))
     conn.execute("""
         INSERT INTO measurements (received_at, ts, sid, temp_c, hum_rh, pres_hpa, flags, gw_ip)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        received_at, data.get("ts"), data.get("sid"),
+        received_at, data.get("ts"), sid,
         data.get("temp_c"), data.get("hum_rh"), data.get("pres_hpa"),
         data.get("flags"), data.get("gw_ip"),
     ))
@@ -131,10 +178,6 @@ def insert_measurement(data: dict, received_at: str):
 
 
 def check_and_log_alerts(data: dict, received_at: str) -> list:
-    """
-    Vérifie les seuils depuis la table thresholds (SQLite).
-    Les seuils modifiés via le dashboard sont pris en compte immédiatement.
-    """
     sid = data.get("sid")
     alerts = []
     conn = sqlite3.connect(DB_PATH)
@@ -151,17 +194,42 @@ def check_and_log_alerts(data: dict, received_at: str) -> list:
         value = data.get(param)
         if value is None:
             continue
-        if value < vmin or value > vmax:
-            threshold_str = f"[{vmin}, {vmax}]"
-            conn.execute(
-                """INSERT INTO alert_log
-                   (triggered_at, sid, param, value, threshold, acknowledged)
-                   VALUES (?,?,?,?,?,0)""",
-                (received_at, sid, param, value, threshold_str)
-            )
-            alerts.append({"sid": sid, "param": param,
-                            "value": value, "threshold": threshold_str})
-            print(f"[ALARME] sid={sid} {param}={value} hors seuil {threshold_str}")
+
+        is_out = value < vmin or value > vmax
+        threshold_str = f"[{vmin}, {vmax}]"
+
+        # Cherche une alarme active (non acquittée) pour ce (sid, param)
+        active = conn.execute("""
+            SELECT id FROM alert_log
+            WHERE sid=? AND param=? AND acknowledged=0
+            ORDER BY triggered_at DESC LIMIT 1
+        """, (sid, param)).fetchone()
+
+        if is_out:
+            if not active:
+                # Nouvelle alarme — on insère UNE SEULE FOIS
+                conn.execute("""
+                    INSERT INTO alert_log
+                    (triggered_at, sid, param, value, threshold, acknowledged)
+                    VALUES (?,?,?,?,?,0)
+                """, (received_at, sid, param, value, threshold_str))
+                alerts.append({"sid": sid, "param": param,
+                                "value": value, "threshold": threshold_str})
+                print(f"[ALARME] sid={sid} {param}={value} hors seuil {threshold_str}")
+            # else: alarme déjà ouverte → on ne crée pas de doublon
+
+        else:
+            if active:
+                # Capteur revenu dans les seuils → auto-ack
+                conn.execute("""
+                    UPDATE alert_log
+                    SET acknowledged=1,
+                        acknowledged_at=?,
+                        auto_resolved=1,
+                        resolved_at=?
+                    WHERE id=?
+                """, (received_at, received_at, active[0]))
+                print(f"[AUTO-ACK] sid={sid} {param}={value} revenu OK → alarme #{active[0]} clôturée automatiquement")
 
     conn.commit()
     conn.close()
@@ -380,17 +448,17 @@ def assign_sensor_to_unit(sid: int, unit_id):
 def get_sensor_config() -> dict:
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute(
-        "SELECT sid, mode, deleted, note, unit_id FROM sensor_config"
+        "SELECT sid, mode, deleted, note, unit_id, name FROM sensor_config"
     ).fetchall()
     conn.close()
 
-    
     return {
         r[0]: {
-            "mode": r[1] if r[1] else "active", 
+            "mode":    r[1] if r[1] else "active",
             "deleted": bool(r[2]),
-            "note": r[3],
+            "note":    r[3],
             "unit_id": r[4],
+            "name":    r[5],
         }
         for r in rows
     }
@@ -411,39 +479,33 @@ def set_sensor_mode(sid: int, mode: str, note: str = None):
     conn.close()
 
 
-def delete_sensor(sid: int):
+def rename_sensor(sid: int, name: str):
+    """Renomme un capteur. Crée la ligne sensor_config si elle n'existe pas."""
+    name = name.strip()
     conn = sqlite3.connect(DB_PATH)
-
-    # supprimer config capteur
-    conn.execute("DELETE FROM sensor_config WHERE sid = ?", (sid,))
-
-    # supprimer données
-    conn.execute("DELETE FROM measurements WHERE sid = ?", (sid,))
-
-    # supprimer alarmes
-    conn.execute("DELETE FROM alert_log WHERE sid = ?", (sid,))
-
+    conn.execute("""
+        INSERT INTO sensor_config (sid, name)
+        VALUES (?, ?)
+        ON CONFLICT(sid) DO UPDATE SET name = excluded.name
+    """, (sid, name))
     conn.commit()
     conn.close()
+    print(f"[CFG] Capteur sid={sid} renommé → '{name}'")
 
+
+def delete_sensor(sid: int):
+    """Suppression définitive : efface config, mesures et alarmes du capteur."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("DELETE FROM sensor_config WHERE sid = ?", (sid,))
+    conn.execute("DELETE FROM measurements WHERE sid = ?", (sid,))
+    conn.execute("DELETE FROM alert_log WHERE sid = ?", (sid,))
+    conn.execute("DELETE FROM thresholds WHERE sid = ?", (sid,))
+    conn.commit()
+    conn.close()
     print(f"[CFG] Capteur sid={sid} supprimé définitivement")
 
 
-def restore_sensor(sid: int):
-    """Restaure un capteur supprimé et le remet actif."""
-    conn = sqlite3.connect(DB_PATH)
 
-    conn.execute("""
-        UPDATE sensor_config
-        SET deleted = 0,
-            mode = 'active'
-        WHERE sid = ?
-    """, (sid,))
-
-    conn.commit()
-    conn.close()
-
-    print(f"[CFG] Capteur sid={sid} restauré (mode=active)")
 
 
 # ── Lecture mesures ───────────────────────────────────────────────────────────
@@ -466,8 +528,8 @@ def query_stats() -> list:
         INNER JOIN (
             SELECT sid, MAX(received_at) AS last FROM measurements GROUP BY sid
         ) latest ON m.sid = latest.sid AND m.received_at = latest.last
-        LEFT JOIN sensor_config sc ON sc.sid = m.sid
-        LEFT JOIN units u          ON u.unit_id = sc.unit_id
+        INNER JOIN sensor_config sc ON sc.sid = m.sid
+        LEFT JOIN units u           ON u.unit_id = sc.unit_id
         ORDER BY m.sid
     """).fetchall()
     conn.close()

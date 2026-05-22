@@ -41,7 +41,6 @@ body {
   color: var(--text);
   min-height: 100vh;
   display: flex;
-  overflow-x: hidden;
 }
 
 body::before {
@@ -141,6 +140,7 @@ body::before {
 .main-wrap {
   margin-left: var(--sidebar-w);
   flex: 1;
+  min-width: 0;
   min-height: 100vh;
   display: flex; flex-direction: column;
 }
@@ -173,7 +173,12 @@ body::before {
   color: var(--red); letter-spacing: .04em;
 }
 
-.page-content { padding: 24px 28px; flex: 1; }
+.page-content {
+  padding: 24px 28px;
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+}
 
 /* ── Pages ───────────────────────────────────────────────────────────────── */
 .page { display: none; }
@@ -198,7 +203,7 @@ body::before {
 /* ── Dashboard — sensor cards ───────────────────────────────────────────── */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px; margin-bottom: 32px;
 }
 
@@ -368,7 +373,10 @@ body::before {
   border: 1px solid var(--dim); padding: 1px 9px; border-radius: var(--r-pill);
 }
 .charts-row { display: grid; gap: 0; }
-.chart-panel { padding: 16px 18px; border-right: 1px solid var(--border); }
+.chart-panel {
+  padding: 16px 18px; border-right: 1px solid var(--border);
+  min-width: 0;
+}
 .chart-panel:last-child { border-right: none; }
 .chart-param-label {
   font-family: var(--font-mono); font-size: .6rem;
@@ -376,6 +384,18 @@ body::before {
   color: var(--muted); margin-bottom: 10px;
 }
 .chart-container { position: relative; height: 140px; }
+
+/* Stack chart panels vertically on narrow screens */
+@media (max-width: 700px) {
+  .charts-row {
+    grid-template-columns: 1fr !important;
+  }
+  .chart-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .chart-panel:last-child { border-bottom: none; }
+}
 
 /* ── Period selector ─────────────────────────────────────────────────────── */
 .controls {
@@ -403,6 +423,12 @@ body::before {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 18px; border-bottom: 1px solid var(--border);
   background: var(--surface2);
+  flex-wrap: wrap; gap: 8px;
+}
+.alerts-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .btn-ack-all {
   font-family: var(--font-mono); font-size: .65rem;
@@ -410,19 +436,22 @@ body::before {
   border: 1px solid var(--amber); background: var(--amber-dim);
   padding: 5px 14px; cursor: pointer; transition: all .2s;
   text-transform: uppercase; border-radius: var(--r-pill);
+  white-space: nowrap;
 }
 .btn-ack-all:hover { background: var(--amber); color: #000; }
 
-table { width: 100%; border-collapse: collapse; font-size: .75rem; }
+table { width: 100%; border-collapse: collapse; font-size: .75rem; min-width: 560px; }
 th {
   text-align: left; padding: 9px 14px;
   font-family: var(--font-cond); font-size: .65rem;
   font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
   color: var(--muted); border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 td {
   padding: 9px 14px; border-bottom: 1px solid var(--border);
   color: var(--text); font-family: var(--font-mono); font-size: .68rem;
+  white-space: nowrap;
 }
 tr.acked td { opacity: .4; }
 tr:hover td { background: var(--surface2); }
@@ -454,13 +483,13 @@ tr:hover td { background: var(--surface2); }
 /* ── Management page ─────────────────────────────────────────────────────── */
 .mgmt-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 14px; margin-bottom: 32px;
 }
 .mgmt-card {
-  height: 280px; 
   display: flex;
   flex-direction: column;
+  height: 300px;
 }
 
 .mgmt-card-header {
@@ -481,6 +510,7 @@ tr:hover td { background: var(--surface2); }
   display: flex;
   flex-direction: column;
   flex: 1;
+  justify-content: space-between;
 }
 /* Status toggle row */
 .mgmt-row {
@@ -523,33 +553,32 @@ tr:hover td { background: var(--surface2); }
   display: flex;
   flex-direction: column;
   gap: 6px;
-
   padding: 10px 12px;
   background: var(--bg);
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
-
-  min-height: 140px;   /* ✅ AJOUT */
+  height: 110px;
+  overflow-y: auto;
 }
 
 .thr-row {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 6px; width: 100%;
 }
 .thr-param-label {
   font-family: var(--font-mono); font-size: .6rem;
-  color: var(--muted); width: 80px; flex-shrink: 0;
+  color: var(--muted); width: 36px; flex-shrink: 0;
 }
 .thr-input {
-  width: 72px; background: var(--surface2);
+  flex: 1; min-width: 0; background: var(--surface2);
   border: 1px solid var(--border2); border-radius: var(--r-sm);
   color: #fff; font-family: var(--font-mono); font-size: .68rem;
-  padding: 4px 8px; outline: none; transition: border-color .2s;
+  padding: 4px 6px; outline: none; transition: border-color .2s;
   text-align: center;
 }
 .thr-input:focus { border-color: var(--blue); }
 .thr-sep { font-family: var(--font-mono); font-size: .6rem; color: var(--dim); }
 .thr-save {
-  margin-left: auto;
+  margin-left: 4px;
   font-family: var(--font-mono); font-size: .58rem;
   color: var(--blue); border: 1px solid var(--blue-dim);
   background: transparent; padding: 3px 10px;
@@ -567,7 +596,7 @@ tr:hover td { background: var(--surface2); }
 /* Mgmt action buttons */
 
 .mgmt-actions {
-  margin-top: auto;
+  margin-top: 12px;
 }
 
 .btn-mgmt {
@@ -580,8 +609,6 @@ tr:hover td { background: var(--surface2); }
 .btn-mgmt:hover              { border-color: var(--blue); color: var(--blue); }
 .btn-mgmt.btn-del            { flex: 0 0 auto; padding: 5px 12px; border-color: #2a0a0a; color: #6a2a2a; }
 .btn-mgmt.btn-del:hover      { border-color: var(--red); color: var(--red); }
-.btn-mgmt.btn-restore        { border-color: #1a5c38; color: var(--green); }
-.btn-mgmt.btn-restore:hover  { background: var(--green-dim); }
 
 /* Units management */
 .units-grid {
@@ -941,13 +968,19 @@ tr:hover td { background: var(--surface2); }
 
 <script>
 // ══ Constants ════════════════════════════════════════════════════════════════
-const SENSORS = {
-  1: { name: "STHP01A",         params: ["temp_c","hum_rh","pres_hpa"] },
-  2: { name: "XYMD04 RS485",    params: ["temp_c","hum_rh"] },
-  3: { name: "PT100 Canal 1",   params: ["temp_c"] },
-  4: { name: "PT100 Canal 2",   params: ["temp_c"] },
-  5: { name: "XYMD04 RS485 #2", params: ["temp_c","hum_rh"] },
-};
+// SENSORS est construit dynamiquement depuis sensorConfigs + statsData
+// Plus de liste statique — tout vient du serveur
+function getSensorInfo(sid) {
+  const cfg    = sensorConfigs[sid] || {};
+  const name   = cfg.name || `Capteur ${sid}`;
+  const stat   = statsData.find(s => s.sid === sid);
+  // On déduit les params depuis les clés non-null de la dernière mesure
+  const KNOWN  = ["temp_c","hum_rh","pres_hpa"];
+  const params = stat
+    ? KNOWN.filter(p => stat[p] != null)
+    : KNOWN.filter(p => thresholdsData[sid]?.[p] != null);
+  return { name, params };
+}
 const PARAM_LABELS = { temp_c:"TEMPÉRATURE (°C)", hum_rh:"HUMIDITÉ (%RH)", pres_hpa:"PRESSION (hPa)" };
 const PARAM_UNITS  = { temp_c:"°C", hum_rh:"%RH", pres_hpa:"hPa" };
 const PARAM_COLORS = { temp_c:"#3a9fd8", hum_rh:"#2ecc71", pres_hpa:"#f39c12" };
@@ -1028,11 +1061,11 @@ async function loadStats() {
     statsData = j.sensors || [];
   } catch(e) { return; }
 
-  const anyOffline = statsData.some(s => s.offline && !s.deleted);
+  const anyOffline = statsData.some(s => s.offline);
   document.getElementById("offline-banner").style.display = anyOffline ? "block" : "none";
   document.getElementById("last-update").textContent = new Date().toLocaleTimeString("fr-BE");
   document.getElementById("topbar-meta").textContent =
-    `${statsData.filter(s=>!s.deleted).length} capteurs · ${new Date().toLocaleTimeString("fr-BE")}`;
+    `${statsData.length} capteurs · ${new Date().toLocaleTimeString("fr-BE")}`;
 
   if (currentPage === "dashboard") renderCards();
   if (currentPage === "detail" && detailSid) updateDetailValues(detailSid);
@@ -1076,7 +1109,6 @@ function renderCards() {
   const grid = document.getElementById("cards");
   grid.innerHTML = "";
   for (const s of statsData) {
-    if (s.deleted) continue;
     const scfg       = sensorConfigs[s.sid] || { mode: "active" };
     const mode = scfg.mode;
     const isDisabled = mode === "disabled";
@@ -1124,7 +1156,7 @@ async function loadDetailPage(sid) {
   const s    = statsData.find(x => x.sid === sid);
   const scfg = sensorConfigs[sid] || { mode: "active" };
   const mode = scfg.mode || "active";
-  const name = SENSORS[sid]?.name || `Capteur ${sid}`;
+  const name = getSensorInfo(sid).name;
 
   document.getElementById("detail-name").textContent = name;
   document.getElementById("detail-sid").textContent  = `SID ${sid}`;
@@ -1165,7 +1197,7 @@ function updateDetailValues(sid) {
   const s    = statsData.find(x => x.sid === sid);
   if (!s) return;
   const thr  = thresholdsData[sid] || {};
-  const params = SENSORS[sid]?.params || [];
+  const params = getSensorInfo(sid).params;
 
   document.getElementById("detail-values").innerHTML = params.map(p => {
     const val     = s[p];
@@ -1212,14 +1244,13 @@ async function loadDetailCharts(sid) {
   const container = document.getElementById("detail-charts");
   container.innerHTML = "";
 
-  const cfg = SENSORS[sid];
-  if (!cfg) return;
+  const cfg  = getSensorInfo(sid);
+  const scfg = sensorConfigs[sid] || { mode: "active" };
 
   const res = await fetch(`/history/${sid}?hours=${detailPeriod}`);
   const j   = await res.json();
   if (!j.count) { container.innerHTML = '<div class="no-data">Aucune donnée sur cette période</div>'; return; }
 
-  const scfg = sensorConfigs[sid] || { mode: "active" };
   const mode = scfg.mode || "active";
   const isDisabled = mode === "disabled";
   const isMaintenance = mode === "maintenance";
@@ -1287,15 +1318,20 @@ async function loadDetailAlerts(sid) {
     const t = new Date(a.triggered_at).toLocaleString("fr-BE");
     const isAcked = a.acknowledged === 1;
     const ackedAt = isAcked ? new Date(a.acknowledged_at).toLocaleTimeString("fr-BE") : "";
+    const statusCell = !isAcked
+      ? `<span class="status-active">ACTIVE</span>`
+      : a.auto_resolved
+        ? `<span class="status-acked" style="color:var(--green)">↩ Auto-résolu ${ackedAt}</span>`
+        : `<span class="status-acked">✓ ACK ${ackedAt}</span>`;
     html += `<tr class="${isAcked?"acked":""}">
       <td>${t}</td><td>${a.param}</td>
       <td class="${isAcked?"":"val-alarm"}">${a.value.toFixed(1)}</td>
       <td>${a.threshold}</td>
-      <td>${isAcked ? `<span class="status-acked">✓ ${ackedAt}</span>` : `<span class="status-active">ACTIVE</span>`}</td>
+      <td>${statusCell}</td>
       <td>${!isAcked ? `<button class="btn-ack" onclick="ackOne(${a.id})">ACK</button>` : ""}</td>
     </tr>`;
   }
-  cont.innerHTML = html + "</tbody></table>";
+  cont.innerHTML = `<div class="alerts-table-wrap">` + html + `</tbody></table></div>`;
 }
 
 // ══ Main charts ══════════════════════════════════════════════════════════════
@@ -1309,10 +1345,10 @@ async function loadAllCharts() {
   const unitMap     = {};
   statsData.forEach(s => { if (s.unit_name) unitMap[s.sid] = s.unit_name; });
 
-  for (const [sidStr, cfg] of Object.entries(SENSORS)) {
+  for (const [sidStr] of Object.entries(sensorConfigs)) {
     const sid  = parseInt(sidStr);
-    const scfg = sensorConfigs[sid] || { mode: "active", deleted: false };
-    if (scfg.deleted) continue;
+    const scfg = sensorConfigs[sid] || { mode: "active" };
+    const cfg  = getSensorInfo(sid);
 
     const mode = scfg.mode || "active";
     const res = await fetch(`/history/${sid}?hours=${mainPeriod}`);
@@ -1355,10 +1391,10 @@ async function loadAllCharts() {
   await new Promise(r => requestAnimationFrame(r));
   await new Promise(r => setTimeout(r, 30));
 
-  for (const [sidStr, cfg] of Object.entries(SENSORS)) {
+  for (const [sidStr] of Object.entries(sensorConfigs)) {
     const sid  = parseInt(sidStr);
-    const scfg = sensorConfigs[sid] || { mode: "active", deleted: false };
-    if (scfg.deleted) continue;
+    const scfg = sensorConfigs[sid] || { mode: "active" };
+    const cfg  = getSensorInfo(sid);
 
     const mode = scfg.mode || "active";
     const res = await fetch(`/history/${sid}?hours=${mainPeriod}`);
@@ -1410,6 +1446,7 @@ async function loadAllCharts() {
 
 
 // ══ Alerts ════════════════════════════════════════════════════════════════════
+// ══ Alerts ════════════════════════════════════════════════════════════════════
 async function loadAlerts() {
   const res  = await fetch("/alerts?limit=40");
   const json = await res.json();
@@ -1422,15 +1459,20 @@ async function loadAlerts() {
     const t = new Date(a.triggered_at).toLocaleString("fr-BE");
     const isAcked = a.acknowledged === 1;
     const ackedAt = isAcked ? new Date(a.acknowledged_at).toLocaleTimeString("fr-BE") : "";
+    const statusCell = !isAcked
+      ? `<span class="status-active">ACTIVE</span>`
+      : a.auto_resolved
+        ? `<span class="status-acked" style="color:var(--green)">↩ Auto-résolu ${ackedAt}</span>`
+        : `<span class="status-acked">✓ ACK ${ackedAt}</span>`;
     html += `<tr class="${isAcked?"acked":""}">
       <td>${t}</td><td>${a.sensor_name||"sid "+a.sid}</td><td>${a.param}</td>
       <td class="${isAcked?"":"val-alarm"}">${a.value.toFixed(1)}</td>
       <td>${a.threshold}</td>
-      <td>${isAcked?`<span class="status-acked">✓ ${ackedAt}</span>`:`<span class="status-active">ACTIVE</span>`}</td>
+      <td>${statusCell}</td>
       <td>${!isAcked?`<button class="btn-ack" onclick="ackOne(${a.id})">ACK</button>`:""}</td>
     </tr>`;
   }
-  cont.innerHTML = html + "</tbody></table>";
+  cont.innerHTML = `<div class="alerts-table-wrap">` + html + `</tbody></table></div>`;
 }
 
 async function ackOne(id) {
@@ -1438,6 +1480,7 @@ async function ackOne(id) {
   loadStats(); loadAlerts();
   if (currentPage === "detail" && detailSid) loadDetailAlerts(detailSid);
 }
+
 async function acknowledgeAll() {
   await fetch("/alerts/acknowledge-all", { method:"POST" });
   loadStats(); loadAlerts();
@@ -1448,12 +1491,12 @@ function renderMgmtSensors() {
   const grid = document.getElementById("mgmt-sensors");
   grid.innerHTML = "";
 
-  for (const [sidStr, cfg] of Object.entries(SENSORS)) {
+  for (const [sidStr] of Object.entries(sensorConfigs)) {
     const sid  = parseInt(sidStr);
-    const scfg = sensorConfigs[sid] || { mode: "active", deleted: false, note: null, unit_id: null };
+    const scfg = sensorConfigs[sid] || { mode: "active", note: null, unit_id: null };
+    const cfg  = getSensorInfo(sid);
     const mode = scfg.mode || "active";
 
-    const isDeleted     = scfg.deleted;
     const isDisabled    = mode === "disabled";
     const isMaintenance = mode === "maintenance";
 
@@ -1464,15 +1507,19 @@ function renderMgmtSensors() {
     const unitName = unit ? unit.name : "—";
 
     // Seuils
-    const thrRows = Object.entries(thr).map(([param, t]) => `
+    // Afficher tous les params connus du capteur, avec ou sans seuil existant
+    const knownParams = cfg.params.length ? cfg.params : Object.keys(PARAM_UNITS);
+    const thrRows = knownParams.map(param => {
+      const t = thr[param];
+      return `
       <div class="thr-row">
         <span class="thr-param-label">${PARAM_UNITS[param] || param}</span>
-        <input class="thr-input" id="thr-${sid}-${param}-min" value="${t.vmin}">
+        <input class="thr-input" id="thr-${sid}-${param}-min" value="${t ? t.vmin : ''}" placeholder="min">
         <span class="thr-sep">→</span>
-        <input class="thr-input" id="thr-${sid}-${param}-max" value="${t.vmax}">
+        <input class="thr-input" id="thr-${sid}-${param}-max" value="${t ? t.vmax : ''}" placeholder="max">
         <button class="thr-save" onclick="saveThreshold(${sid},'${param}')">SAUVER</button>
-      </div>
-    `).join("");
+      </div>`;
+    }).join("");
 
     // Label statut
     const statusLabel =
@@ -1486,7 +1533,7 @@ function renderMgmtSensors() {
       "var(--green)";
 
     grid.innerHTML += `
-      <div class="mgmt-card" ${isDeleted ? "style='opacity:.4'" : ""}>
+      <div class="mgmt-card">
         <div class="mgmt-card-header">
           <div class="mgmt-card-title">${cfg.name}</div>
           <div class="mgmt-card-sid">SID ${sid}</div>
@@ -1498,11 +1545,7 @@ function renderMgmtSensors() {
           <div class="mgmt-row">
             <span class="mgmt-row-label">Statut</span>
 
-            ${
-              isDeleted
-                ? `<span style="font-size:.6rem;color:var(--muted)">SUPPRIMÉ</span>`
-                : `
-                  <label class="toggle" title="${
+            <label class="toggle" title="${
                     mode === "disabled"
                       ? "Activer"
                       : mode === "maintenance"
@@ -1512,23 +1555,16 @@ function renderMgmtSensors() {
                     <input type="checkbox" ${mode === "active" ? "checked" : ""} onchange="toggleSensor(${sid}, this)">
                     <span class="toggle-slider"></span>
                   </label>
-
                   <span style="font-size:.6rem;color:${statusColor}">
                     ${statusLabel}
                   </span>
-                `
-            }
           </div>
 
           <!-- UNITÉ -->
           <div class="mgmt-row">
             <span class="mgmt-row-label">Unité</span>
             <span class="mgmt-row-val">${unitName}</span>
-            ${
-              !isDeleted
-                ? `<button class="thr-save" onclick="openAssignModal(${sid})">CHANGER</button>`
-                : ""
-            }
+            <button class="thr-save" onclick="openAssignModal(${sid})">CHANGER</button>
           </div>
 
           ${
@@ -1540,26 +1576,14 @@ function renderMgmtSensors() {
               : ""
           }
 
-          ${
-            thrRows
-              ? `
-              <div style="font-size:.55rem;color:var(--muted)">Seuils</div>
-              <div class="thr-grid">
-                ${thrRows}
-                <div style="text-align:right">
-                  <button class="thr-reset" onclick="resetSensorThresholds(${sid})">↺ Reset</button>
-                </div>
-              </div>`
-              : ""
-          }
+          <div style="font-size:.55rem;color:var(--muted);margin-top:.4rem">Seuils</div>
+          <div class="thr-grid">
+            ${thrRows}
+          </div>
 
           <!-- ACTIONS -->
           <div class="mgmt-actions">
-            ${
-              isDeleted
-                ? `<button class="btn-mgmt btn-restore" onclick="restoreSensor(${sid})">↺ Restaurer</button>`
-                : `<button class="btn-mgmt btn-del" onclick="openDeleteSensorModal(${sid})">🗑 Supprimer</button>`
-            }
+            <button class="btn-mgmt btn-del" onclick="openDeleteSensorModal(${sid})">🗑 Supprimer</button>
           </div>
 
         </div>
@@ -1642,7 +1666,7 @@ function renderUnits() {
   if (!unitsData.length) { grid.innerHTML = '<div class="no-data">// AUCUNE UNITÉ DÉFINIE</div>'; return; }
   grid.innerHTML = unitsData.map(u => {
     const sidsHtml = u.sids?.length
-      ? u.sids.map(sid => `<span class="sensor-chip">${SENSORS[sid]?.name||"SID "+sid}</span>`).join("")
+      ? u.sids.map(sid => `<span class="sensor-chip">${getSensorInfo(sid).name}</span>`).join("")
       : `<span class="sensor-chip none">Aucun capteur</span>`;
     return `
     <div class="unit-card">
@@ -1709,6 +1733,25 @@ async function executeDeleteUnit() {
   await fetch(`/units/${pendingDeleteUnitId}`, { method:"DELETE" });
   closeModal("modal-delete-unit"); pendingDeleteUnitId = null;
   await loadUnits(); await loadSensorConfigs(); renderMgmtSensors(); renderCards();
+}
+
+function openDeleteSensorModal(sid) {
+  pendingDeleteSid = parseInt(sid);
+  const cfg = sensorConfigs[parseInt(sid)] || {};
+  const name = cfg.name || `Capteur ${sid}`;
+  document.getElementById("delete-sensor-name").textContent = name;
+  document.getElementById("modal-delete-sensor").classList.add("open");
+}
+
+async function executeDeleteSensor() {
+  if (!pendingDeleteSid) return;
+  const sid = parseInt(pendingDeleteSid);  // forcer entier pour matcher les clés
+  await fetch(`/sensors/${sid}`, { method: "DELETE" });
+  closeModal("modal-delete-sensor"); pendingDeleteSid = null;
+  // Purger immédiatement les données locales sans attendre le prochain refresh
+  delete sensorConfigs[sid];
+  statsData = statsData.filter(s => s.sid !== sid);
+  renderMgmtSensors(); renderCards();
 }
 
 // ══ Init & refresh ════════════════════════════════════════════════════════════
