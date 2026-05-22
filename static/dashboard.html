@@ -662,14 +662,7 @@ tr:hover td { background: var(--surface2); }
 }
 .btn-new:hover { background: var(--blue); color: #fff; }
 
-.btn-reset-all {
-  font-family: var(--font-mono); font-size: .65rem;
-  letter-spacing: .06em; color: var(--amber);
-  border: 1px solid var(--amber); background: var(--amber-dim);
-  padding: 5px 14px; cursor: pointer; transition: all .2s;
-  text-transform: uppercase; border-radius: var(--r-pill);
-}
-.btn-reset-all:hover { background: var(--amber); color: #000; }
+
 
 /* ── Modals ──────────────────────────────────────────────────────────────── */
 .modal-overlay {
@@ -847,7 +840,6 @@ tr:hover td { background: var(--surface2); }
       <!-- Capteurs -->
       <div class="section-header">
         <div class="section-title">Capteurs</div>
-        <button class="btn-reset-all" onclick="confirmResetAll()">↺ Reset tous les seuils</button>
       </div>
       <div class="mgmt-grid" id="mgmt-sensors"></div>
 
@@ -953,18 +945,7 @@ tr:hover td { background: var(--surface2); }
   </div>
 </div>
 
-<!-- ── Modal : reset tous seuils ──────────────────────────────────────────── -->
-<div class="modal-overlay" id="modal-reset-all">
-  <div class="modal-box danger">
-    <h3>↺ Réinitialiser tous les seuils ?</h3>
-    <p class="modal-p">Tous les seuils seront réécrasés par les valeurs de <code style="color:var(--blue)">config.py</code>.</p>
-    <p class="modal-sub">Les modifications manuelles seront perdues.</p>
-    <div class="modal-actions">
-      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-reset-all')">Annuler</button>
-      <button class="modal-btn modal-btn-danger" onclick="executeResetAll()">Réinitialiser</button>
-    </div>
-  </div>
-</div>
+
 
 <script>
 // ══ Constants ════════════════════════════════════════════════════════════════
@@ -1183,7 +1164,7 @@ async function loadDetailPage(sid) {
 
   } else {
       badgeHtml += `<span class="badge badge-ok">OK</span>`;
-  }                   badgeHtml += `<span class="badge badge-ok">OK</span>`;
+  }
 
   document.getElementById("detail-badges").innerHTML = badgeHtml;
 
@@ -1342,107 +1323,143 @@ async function loadAllCharts() {
   container.innerHTML = "";
 
   const offlineSids = new Set(statsData.filter(s => s.offline).map(s => s.sid));
-  const unitMap     = {};
-  statsData.forEach(s => { if (s.unit_name) unitMap[s.sid] = s.unit_name; });
 
+  // Récupérer l'historique de tous les capteurs en une passe
+  const historyCache = {};
   for (const [sidStr] of Object.entries(sensorConfigs)) {
-    const sid  = parseInt(sidStr);
-    const scfg = sensorConfigs[sid] || { mode: "active" };
-    const cfg  = getSensorInfo(sid);
+    const sid = parseInt(sidStr);
+    try {
+      const res = await fetch(`/history/${sid}?hours=${mainPeriod}`);
+      const j   = await res.json();
+      if (j.count) historyCache[sid] = j;
+    } catch(e) {}
+  }
 
-    const mode = scfg.mode || "active";
-    const res = await fetch(`/history/${sid}?hours=${mainPeriod}`);
-    const j   = await res.json();
-    if (!j.count) continue;
+  // Construire les groupes : une entrée par unité + un groupe "Non assignés"
+  const groups = [];
 
-    const isOffline  = offlineSids.has(sid);
-    const isDisabled = (mode === "disabled");
-    const isMaintenance = mode === "maintenance";
-    const ncols      = cfg.params.length;
+  for (const unit of unitsData) {
+    const sids = (unit.sids || []).filter(sid => sensorConfigs[sid] && historyCache[sid]);
+    if (!sids.length) continue;
+    groups.push({ type: "unit", unit, sids });
+  }
 
-    const panelsHtml = cfg.params.map(p => `
-      <div class="chart-panel">
-        <div class="chart-param-label">${PARAM_LABELS[p]}</div>
-        <div class="chart-container"><canvas id="c-${sid}-${p}"></canvas></div>
-      </div>`).join("");
+  // Capteurs sans unité
+  const assignedSids = new Set(unitsData.flatMap(u => u.sids || []));
+  const unassigned = Object.keys(sensorConfigs)
+    .map(s => parseInt(s))
+    .filter(sid => !assignedSids.has(sid) && historyCache[sid]);
+  if (unassigned.length) {
+    groups.push({ type: "unassigned", sids: unassigned });
+  }
+
+  // Rendu HTML des blocs
+  for (const group of groups) {
+    const isUnit = group.type === "unit";
+    const headerTitle = isUnit
+      ? group.unit.name
+      : "Capteurs non assignés";
+    const headerSub = isUnit
+      ? `<span class="sensor-block-unit">${group.unit.unit_type || ""}</span>`
+      : "";
+
+    // Pour chaque capteur du groupe, construire ses panels
+    let sensorsHtml = "";
+    for (const sid of group.sids) {
+      const scfg = sensorConfigs[sid] || { mode: "active" };
+      const cfg  = getSensorInfo(sid);
+      const mode = scfg.mode || "active";
+      const isOffline     = offlineSids.has(sid);
+      const isDisabled    = mode === "disabled";
+      const isMaintenance = mode === "maintenance";
+      const ncols = cfg.params.length;
+
+      const panelsHtml = cfg.params.map(p => `
+        <div class="chart-panel">
+          <div class="chart-param-label">${PARAM_LABELS[p]}</div>
+          <div class="chart-container"><canvas id="c-${sid}-${p}"></canvas></div>
+        </div>`).join("");
+
+      const statusTag = isDisabled
+        ? '<span class="offline-tag">OFF</span>'
+        : isMaintenance
+          ? '<span class="offline-tag">MAINTENANCE</span>'
+          : isOffline
+            ? '<span class="offline-tag">HORS LIGNE</span>'
+            : "";
+
+      sensorsHtml += `
+        <div class="sensor-block ${isOffline||isDisabled?"offline":""}" style="margin-bottom:0;border-radius:0;border-top:none">
+          <div class="sensor-block-header" style="background:transparent;padding:8px 18px">
+            <div class="sensor-block-name" style="font-size:.72rem;color:var(--muted)">${cfg.name}</div>
+            <span class="sid-tag">SID ${sid}</span>
+            ${statusTag}
+          </div>
+          <div class="charts-row" style="grid-template-columns:repeat(${ncols},1fr)">
+            ${panelsHtml}
+          </div>
+        </div>`;
+    }
 
     container.innerHTML += `
-      <div class="sensor-block ${isOffline||isDisabled?"offline":""}">
+      <div class="sensor-block" style="margin-bottom:16px;overflow:hidden">
         <div class="sensor-block-header">
-          <div class="sensor-block-name">${cfg.name}</div>
-          <span class="sid-tag">SID ${sid}</span>
-          
-          ${isDisabled 
-              ? '<span class="offline-tag">OFF</span>' 
-              : isMaintenance
-                  ? '<span class="offline-tag">MAINTENANCE</span>'
-                  : isOffline
-                      ? '<span class="offline-tag">HORS LIGNE</span>'
-                      : ""
-          }
-          ${unitMap[sid] ? `<span class="sensor-block-unit">📦 ${unitMap[sid]}</span>` : ""}
+          <div class="sensor-block-name">${headerTitle}</div>
+          ${headerSub}
         </div>
-        <div class="charts-row" style="grid-template-columns:repeat(${ncols},1fr)">
-          ${panelsHtml}
-        </div>
+        ${sensorsHtml}
       </div>`;
   }
 
   await new Promise(r => requestAnimationFrame(r));
   await new Promise(r => setTimeout(r, 30));
 
-  for (const [sidStr] of Object.entries(sensorConfigs)) {
-    const sid  = parseInt(sidStr);
+  // Instancier les charts
+  for (const sid of Object.keys(historyCache).map(Number)) {
     const scfg = sensorConfigs[sid] || { mode: "active" };
     const cfg  = getSensorInfo(sid);
-
     const mode = scfg.mode || "active";
-    const res = await fetch(`/history/${sid}?hours=${mainPeriod}`);
-    const j   = await res.json();
-    if (!j.count) continue;
+    const j    = historyCache[sid];
 
-    const labels     = j.data.map(r => timeLabel(r.received_at));
-    const isOffline  = statsData.some(s => s.sid === sid && s.offline);
+    const labels        = j.data.map(r => timeLabel(r.received_at));
+    const isOffline     = offlineSids.has(sid);
     const isDisabled    = mode === "disabled";
     const isMaintenance = mode === "maintenance";
-
 
     for (const param of cfg.params) {
       const canvas = document.getElementById(`c-${sid}-${param}`);
       if (!canvas) continue;
       const color = (isOffline || isDisabled || isMaintenance) ? "#2a3a4a" : PARAM_COLORS[param];
-      
+
       charts[`${sid}-${param}`] = new Chart(canvas.getContext("2d"), {
-            type: "line",
-            data: {
-              labels,
-              datasets: [{
-                data: j.data.map(r => r[param]),
-                borderColor: color,
-                backgroundColor: color + "18",
-                borderWidth: 1.5,
-                pointRadius: 0,
-                pointHoverRadius: 3,
-                tension: 0.3,
-                fill: true
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              animation: false,
-              plugins: {
-                legend: { display: false }
-              },
-              scales: {
-                x: { ticks: { color:"#2a3a4a" } },
-                y: { ticks: { color:"#2a3a4a" } }
-              }
-            }
-          });
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            data: j.data.map(r => r[param]),
+            borderColor: color,
+            backgroundColor: color + "18",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            tension: 0.3,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color:"#2a3a4a", maxTicksLimit:6, font:{family:"'Share Tech Mono'",size:10} }, grid:{color:"#0f1820"} },
+            y: { ticks: { color:"#2a3a4a", font:{family:"'Share Tech Mono'",size:10} }, grid:{color:"#0f1820"} },
+          }
         }
-      }
+      });
     }
+  }
+}
 
 
 // ══ Alerts ════════════════════════════════════════════════════════════════════
@@ -1646,19 +1663,7 @@ async function saveThreshold(sid, param) {
   renderMgmtSensors();
 }
 
-async function resetSensorThresholds(sid) {
-  await fetch(`/thresholds/${sid}/reset`, { method:"POST" });
-  await loadThresholds(); renderMgmtSensors();
-}
 
-function confirmResetAll() {
-  document.getElementById("modal-reset-all").classList.add("open");
-}
-async function executeResetAll() {
-  await fetch("/thresholds/reset-all", { method:"POST" });
-  closeModal("modal-reset-all");
-  await loadThresholds(); renderMgmtSensors();
-}
 
 // ══ Units ══════════════════════════════════════════════════════════════════════
 function renderUnits() {

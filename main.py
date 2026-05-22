@@ -45,7 +45,6 @@ from database import (
     get_all_thresholds,
     get_thresholds_for_sensor,
     set_threshold,
-    reset_thresholds_to_defaults,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -71,46 +70,32 @@ async def ingest(request: Request):
         return {"status": "error", "detail": "JSON invalide"}
 
     received_at = datetime.now().isoformat()
-
     sid = data.get("sid")
 
-    # Récup config capteur
     cfg = get_sensor_config().get(
         sid,
         {"mode": "active", "deleted": False}
     )
 
-    # capteur supprimé
     if cfg["deleted"]:
-        # auto-restore si le capteur revient
         set_sensor_mode(sid, "active")
         print(f"[AUTO] Sensor {sid} restauré automatiquement")
 
     mode = cfg["mode"]
 
-    # OFF complet
     if mode == "disabled":
         print(f"[INFO] Sensor {sid} ignoré (OFF)")
         return {"status": "ignored", "reason": "disabled"}
 
-    # stockage autorisé (active + maintenance)
     insert_measurement(data, received_at)
 
     alerts = []
-
-    # alarmes uniquement en mode actif
     if mode == "active":
         alerts = check_and_log_alerts(data, received_at)
 
-    # logs
     name = cfg.get("name") or f"Capteur {sid}"
     now  = datetime.now().strftime("%H:%M:%S")
-
-    label = {
-        "active": "",
-        "maintenance": " [MAINTENANCE]",
-        "disabled": " [OFF]"
-    }[mode]
+    label = {"active": "", "maintenance": " [MAINTENANCE]", "disabled": " [OFF]"}[mode]
 
     print(f"\n{'─'*45}")
     print(f"  {now}  —  {name}{label}")
@@ -145,21 +130,18 @@ async def get_stats():
     alarm_sids    = {a["sid"] for a in active_alerts}
     sensor_cfg    = get_sensor_config()
 
-    
     for r in rows:
         sid = r["sid"]
         cfg = sensor_cfg.get(sid, {"mode": "active", "deleted": False, "note": None, "unit_id": None})
 
         r["sensor_name"] = cfg.get("name") or f"Capteur {sid}"
-
         mode = cfg["mode"]
-        r["mode"] = mode
+        r["mode"]    = mode
         r["deleted"] = cfg["deleted"]
-        r["note"] = cfg["note"]
+        r["note"]    = cfg["note"]
 
         last = datetime.fromisoformat(r["received_at"])
         age  = int((now - last).total_seconds())
-
         r["age_seconds"] = age
 
         if cfg["deleted"] or mode != "active":
@@ -168,6 +150,7 @@ async def get_stats():
         else:
             r["offline"]   = age > OFFLINE_THRESHOLD_S
             r["has_alarm"] = sid in alarm_sids
+
     return {"sensors": rows, "offline_threshold_s": OFFLINE_THRESHOLD_S}
 
 
@@ -213,13 +196,11 @@ async def get_history(sid: int, hours: int = Query(24)):
 
 @app.get("/thresholds")
 async def list_thresholds():
-    """Retourne tous les seuils actifs depuis la base SQLite."""
     return {"thresholds": get_all_thresholds()}
 
 
 @app.get("/thresholds/{sid}")
 async def get_sensor_thresholds(sid: int):
-    """Retourne les seuils d'un capteur spécifique."""
     data = get_thresholds_for_sensor(sid)
     if not data:
         raise HTTPException(status_code=404, detail=f"Aucun seuil pour sid={sid}")
@@ -228,11 +209,6 @@ async def get_sensor_thresholds(sid: int):
 
 @app.put("/thresholds/{sid}/{param}")
 async def update_threshold(sid: int, param: str, request: Request):
-    """
-    Met à jour un seuil pour un capteur et un paramètre donnés.
-    Body JSON : {"vmin": 2.0, "vmax": 8.0}
-    Effet immédiat sur les alarmes sans redémarrage.
-    """
     body = await request.body()
     try:
         payload = json.loads(body.decode("utf-8"))
@@ -251,25 +227,10 @@ async def update_threshold(sid: int, param: str, request: Request):
     return {"status": "ok", "sid": sid, "param": param, "vmin": vmin, "vmax": vmax}
 
 
-@app.post("/thresholds/{sid}/reset")
-async def reset_sensor_thresholds(sid: int):
-    """Réinitialise les seuils d'un capteur aux valeurs de config.py."""
-    reset_thresholds_to_defaults(sid)
-    return {"status": "ok", "sid": sid, "message": f"Seuils sid={sid} réinitialisés"}
-
-
-@app.post("/thresholds/reset-all")
-async def reset_all_thresholds():
-    """Réinitialise tous les seuils aux valeurs de config.py."""
-    reset_thresholds_to_defaults()
-    return {"status": "ok", "message": "Tous les seuils réinitialisés depuis config.py"}
-
-
 # ── Gestion des capteurs ──────────────────────────────────────────────────────
 
 @app.get("/sensors/config")
 async def sensors_config():
-    """Liste l'état complet de tous les capteurs connus."""
     cfg        = get_sensor_config()
     thresholds = get_all_thresholds()
     result     = []
@@ -288,10 +249,6 @@ async def sensors_config():
 
 @app.post("/sensors/{sid}/mode")
 async def set_sensor_mode_endpoint(sid: int, request: Request):
-    """
-    Active ou désactive un capteur.
-    Body JSON : {"mode": "active" | "maintenance" | "disabled"}
-    """
     body = await request.body()
     try:
         payload = json.loads(body.decode("utf-8"))
@@ -305,22 +262,12 @@ async def set_sensor_mode_endpoint(sid: int, request: Request):
         return {"status": "error", "detail": "mode invalide"}
 
     set_sensor_mode(sid, mode, note)
-
-    label = {
-        "active": "ACTIF",
-        "maintenance": "MAINTENANCE",
-        "disabled": "OFF"
-    }[mode]
-
+    label = {"active": "ACTIF", "maintenance": "MAINTENANCE", "disabled": "OFF"}[mode]
     return {"status": "ok", "sid": sid, "mode": mode, "message": f"Capteur {sid} {label}"}
 
 
 @app.put("/sensors/{sid}/name")
 async def rename_sensor_endpoint(sid: int, request: Request):
-    """
-    Renomme un capteur.
-    Body JSON : {"name": "Frigo Pharmacie"}
-    """
     body = await request.body()
     try:
         payload = json.loads(body.decode("utf-8"))
@@ -337,17 +284,12 @@ async def rename_sensor_endpoint(sid: int, request: Request):
 
 @app.delete("/sensors/{sid}")
 async def remove_sensor(sid: int):
-    """Soft-delete : masque le capteur sans effacer l'historique."""
     delete_sensor(sid)
     return {"status": "ok", "sid": sid, "message": f"Capteur {sid} supprimé"}
 
 
 @app.post("/sensors/{sid}/assign-unit")
 async def assign_unit(sid: int, request: Request):
-    """
-    Assigne ou désassigne un capteur d'une unité.
-    Body JSON : {"unit_id": 3}  ou  {"unit_id": null}
-    """
     body = await request.body()
     try:
         payload = json.loads(body.decode("utf-8"))

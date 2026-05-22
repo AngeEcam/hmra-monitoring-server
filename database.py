@@ -5,7 +5,7 @@ database.py — Toute la logique SQLite pour HMRA Monitor
 import sqlite3
 import os
 from datetime import datetime, timedelta
-from config import DB_PATH, THRESHOLDS, SENSOR_NAMES
+from config import DB_PATH
 
 
 # ── Initialisation ────────────────────────────────────────────────────────────
@@ -68,16 +68,22 @@ def init_db():
             UNIQUE(sid, param)
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS meta (
+            key   TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
 
     # Migration colonnes manquantes (base existante)
     migrations = [
-    ("alert_log",    "acknowledged",    "INTEGER DEFAULT 0"),
-    ("alert_log",    "acknowledged_at", "TEXT"),
-    ("alert_log",    "auto_resolved",   "INTEGER DEFAULT 0"),
-    ("alert_log",    "resolved_at",     "TEXT"),
-    ("sensor_config","unit_id",         "INTEGER"),
-    ("sensor_config","mode",            "TEXT DEFAULT 'active'"),
-    ("sensor_config","name",            "TEXT"),
+        ("alert_log",    "acknowledged",    "INTEGER DEFAULT 0"),
+        ("alert_log",    "acknowledged_at", "TEXT"),
+        ("alert_log",    "auto_resolved",   "INTEGER DEFAULT 0"),
+        ("alert_log",    "resolved_at",     "TEXT"),
+        ("sensor_config","unit_id",         "INTEGER"),
+        ("sensor_config","mode",            "TEXT DEFAULT 'active'"),
+        ("sensor_config","name",            "TEXT"),
     ]
 
     for table, col, default in migrations:
@@ -94,77 +100,44 @@ def init_db():
     conn.commit()
     conn.close()
 
-    # Seeder les seuils depuis config.py (uniquement les absents)
-    _seed_thresholds()
-    # Seeder les noms depuis config.py (uniquement si pas encore de nom en base)
-    _seed_sensor_names()
     print(f"[DB] Base initialisée : {os.path.abspath(DB_PATH)}")
-
-
-def _seed_sensor_names():
-    """
-    Insere les noms de SENSOR_NAMES une seule fois (premiere init).
-    Si le flag sensor_names_seeded est deja en base, ne fait rien.
-    Les suppressions faites par l'utilisateur ne sont donc jamais ecrasees.
-    """
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS meta (
-            key   TEXT PRIMARY KEY,
-            value TEXT
-        )
-    """)
-    already = conn.execute(
-        "SELECT 1 FROM meta WHERE key = 'sensor_names_seeded'"
-    ).fetchone()
-    if not already:
-        for sid, name in SENSOR_NAMES.items():
-            conn.execute("""
-                INSERT INTO sensor_config (sid, name)
-                VALUES (?, ?)
-                ON CONFLICT(sid) DO UPDATE SET
-                    name = CASE
-                        WHEN sensor_config.name IS NULL OR sensor_config.name = ''
-                        THEN excluded.name
-                        ELSE sensor_config.name
-                    END
-            """, (sid, name))
-        conn.execute("INSERT INTO meta (key, value) VALUES ('sensor_names_seeded', '1')")
-        print("[DB] Seed noms capteurs effectue (premiere init)")
-    conn.commit()
-    conn.close()
-
-
-def _seed_thresholds():
-    """
-    Insère dans la table thresholds les seuils définis dans config.py
-    pour les couples (sid, param) qui n'existent pas encore en base.
-    Les valeurs déjà modifiées via le dashboard ne sont PAS écrasées.
-    """
-    now  = datetime.now().isoformat()
-    conn = sqlite3.connect(DB_PATH)
-    for sid, params in THRESHOLDS.items():
-        for param, (vmin, vmax) in params.items():
-            conn.execute("""
-                INSERT INTO thresholds (sid, param, vmin, vmax, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(sid, param) DO NOTHING
-            """, (sid, param, vmin, vmax, now))
-    conn.commit()
-    conn.close()
 
 
 # ── Écriture mesures ──────────────────────────────────────────────────────────
 
+def _pt100_default_name(sid: int):
+    """Retourne le nom automatique si sid encode un PT100 (sid >= 16).
+      sid = (slave_id << 4) | canal  ->  "PT100 slave X canal Y"
+    """
+    if sid is not None and sid >= 16:
+        slave_id = sid >> 4
+        canal    = sid & 0xF
+        return f"PT100 slave {slave_id} canal {canal}"
+    return None
+
+
 def insert_measurement(data: dict, received_at: str):
-    sid = data.get("sid")
+    sid  = data.get("sid")
+    name = _pt100_default_name(sid)
     conn = sqlite3.connect(DB_PATH)
-    # Enregistrer automatiquement le capteur s'il est inconnu
-    conn.execute("""
-        INSERT INTO sensor_config (sid, mode)
-        VALUES (?, 'active')
-        ON CONFLICT(sid) DO NOTHING
-    """, (sid,))
+    if name:
+        # PT100 : insère avec nom auto, ne l'écrase pas si déjà renommé
+        conn.execute("""
+            INSERT INTO sensor_config (sid, mode, name)
+            VALUES (?, 'active', ?)
+            ON CONFLICT(sid) DO UPDATE SET
+                name = CASE
+                    WHEN sensor_config.name IS NULL OR sensor_config.name = ''
+                    THEN excluded.name
+                    ELSE sensor_config.name
+                END
+        """, (sid, name))
+    else:
+        conn.execute("""
+            INSERT INTO sensor_config (sid, mode)
+            VALUES (?, 'active')
+            ON CONFLICT(sid) DO NOTHING
+        """, (sid,))
     conn.execute("""
         INSERT INTO measurements (received_at, ts, sid, temp_c, hum_rh, pres_hpa, flags, gw_ip)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -198,7 +171,6 @@ def check_and_log_alerts(data: dict, received_at: str) -> list:
         is_out = value < vmin or value > vmax
         threshold_str = f"[{vmin}, {vmax}]"
 
-        # Cherche une alarme active (non acquittée) pour ce (sid, param)
         active = conn.execute("""
             SELECT id FROM alert_log
             WHERE sid=? AND param=? AND acknowledged=0
@@ -207,7 +179,6 @@ def check_and_log_alerts(data: dict, received_at: str) -> list:
 
         if is_out:
             if not active:
-                # Nouvelle alarme — on insère UNE SEULE FOIS
                 conn.execute("""
                     INSERT INTO alert_log
                     (triggered_at, sid, param, value, threshold, acknowledged)
@@ -216,11 +187,10 @@ def check_and_log_alerts(data: dict, received_at: str) -> list:
                 alerts.append({"sid": sid, "param": param,
                                 "value": value, "threshold": threshold_str})
                 print(f"[ALARME] sid={sid} {param}={value} hors seuil {threshold_str}")
-            # else: alarme déjà ouverte → on ne crée pas de doublon
+            # else: alarme déjà ouverte → pas de doublon
 
         else:
             if active:
-                # Capteur revenu dans les seuils → auto-ack
                 conn.execute("""
                     UPDATE alert_log
                     SET acknowledged=1,
@@ -261,9 +231,7 @@ def acknowledge_all_alerts() -> int:
 # ── Gestion des seuils ────────────────────────────────────────────────────────
 
 def get_all_thresholds() -> dict:
-    """
-    Retourne {sid: {param: {"vmin": float, "vmax": float, "updated_at": str}}}
-    """
+    """Retourne {sid: {param: {"vmin": float, "vmax": float, "updated_at": str}}}"""
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute(
         "SELECT sid, param, vmin, vmax, updated_at FROM thresholds ORDER BY sid, param"
@@ -306,30 +274,6 @@ def set_threshold(sid: int, param: str, vmin: float, vmax: float):
     conn.commit()
     conn.close()
     print(f"[THR] sid={sid} {param} → [{vmin}, {vmax}]")
-
-
-def reset_thresholds_to_defaults(sid: int = None):
-    """
-    Réinitialise les seuils depuis config.py.
-    Si sid est fourni, réinitialise uniquement ce capteur.
-    Sinon, réinitialise tous les capteurs.
-    """
-    now  = datetime.now().isoformat()
-    conn = sqlite3.connect(DB_PATH)
-    targets = {sid: THRESHOLDS[sid]} if sid and sid in THRESHOLDS else THRESHOLDS
-    for s, params in targets.items():
-        for param, (vmin, vmax) in params.items():
-            conn.execute("""
-                INSERT INTO thresholds (sid, param, vmin, vmax, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(sid, param) DO UPDATE SET
-                    vmin = excluded.vmin, vmax = excluded.vmax,
-                    updated_at = excluded.updated_at
-            """, (s, param, vmin, vmax, now))
-    conn.commit()
-    conn.close()
-    scope = f"sid={sid}" if sid else "tous les capteurs"
-    print(f"[THR] Seuils réinitialisés depuis config.py ({scope})")
 
 
 # ── Gestion des unités ────────────────────────────────────────────────────────
@@ -443,7 +387,7 @@ def assign_sensor_to_unit(sid: int, unit_id):
         print(f"[UNIT] sid={sid} désassigné de son unité")
 
 
-# ── Gestion des capteurs (activation / suppression) ───────────────────────────
+# ── Gestion des capteurs ──────────────────────────────────────────────────────
 
 def get_sensor_config() -> dict:
     conn = sqlite3.connect(DB_PATH)
@@ -466,7 +410,6 @@ def get_sensor_config() -> dict:
 
 def set_sensor_mode(sid: int, mode: str, note: str = None):
     conn = sqlite3.connect(DB_PATH)
-
     conn.execute("""
         INSERT INTO sensor_config (sid, mode, note)
         VALUES (?, ?, ?)
@@ -474,7 +417,6 @@ def set_sensor_mode(sid: int, mode: str, note: str = None):
             mode = excluded.mode,
             note = COALESCE(excluded.note, sensor_config.note)
     """, (sid, mode, note))
-
     conn.commit()
     conn.close()
 
@@ -503,9 +445,6 @@ def delete_sensor(sid: int):
     conn.commit()
     conn.close()
     print(f"[CFG] Capteur sid={sid} supprimé définitivement")
-
-
-
 
 
 # ── Lecture mesures ───────────────────────────────────────────────────────────
