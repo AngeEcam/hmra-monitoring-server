@@ -1939,6 +1939,37 @@ function renderMgmtSensors() {
 }
 
 
+function openAssignModal(sid) {
+  pendingAssignSid = sid;
+  const scfg = sensorConfigs[sid] || {};
+  const cfg  = getSensorInfo(sid);
+  document.getElementById("assign-label").textContent = `Capteur : ${cfg.name} (SID ${sid})`;
+
+  const sel = document.getElementById("assign-select");
+  sel.innerHTML = `<option value="">— Aucune unité —</option>` +
+    unitsData.map(u =>
+      `<option value="${u.unit_id}" ${scfg.unit_id === u.unit_id ? "selected" : ""}>${u.name}</option>`
+    ).join("");
+
+  document.getElementById("modal-assign").classList.add("open");
+}
+
+async function executeAssign() {
+  if (pendingAssignSid === null) return;
+  const unit_id = document.getElementById("assign-select").value;
+  await apiFetch(`/sensors/${pendingAssignSid}/assign-unit`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ unit_id: unit_id ? parseInt(unit_id) : null }),
+  });
+  closeModal("modal-assign");
+  pendingAssignSid = null;
+  await loadSensorConfigs();
+  await loadUnits();
+  renderMgmtSensors();
+  renderCards();
+}
+
 async function toggleSensor(sid, checkbox) {
   const isActive = checkbox.checked;
 
