@@ -711,9 +711,135 @@ tr:hover td { background: var(--surface2); }
 .modal-btn-danger:hover { background: #3a0a0a; }
 .modal-btn-warn    { background: var(--dim); border: 1px solid var(--border2); color: var(--text); }
 .modal-btn-warn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── Login overlay ───────────────────────────────────────────────────────── */
+#login-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+}
+#login-overlay.hidden { display: none; }
+
+.login-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 40px 44px;
+  width: 360px; max-width: 95vw;
+}
+.login-logo {
+  font-family: var(--font-cond); font-weight: 700;
+  font-size: 1.3rem; letter-spacing: .12em;
+  color: #fff; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.login-logo span { color: var(--blue); }
+.login-sub {
+  font-family: var(--font-mono); font-size: .6rem;
+  color: var(--muted); letter-spacing: .08em; margin-bottom: 28px;
+}
+.login-field { margin-bottom: 14px; }
+.login-field label {
+  display: block; font-family: var(--font-mono); font-size: .62rem;
+  color: var(--muted); letter-spacing: .08em; margin-bottom: 5px;
+}
+.login-field input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: var(--r-sm); color: #fff;
+  font-family: var(--font-ui); font-size: .88rem;
+  padding: 9px 13px; outline: none; transition: border-color .2s;
+}
+.login-field input:focus { border-color: var(--blue); }
+.login-btn {
+  width: 100%; margin-top: 8px;
+  background: var(--blue-dim); border: 1px solid var(--blue);
+  color: var(--blue); font-family: var(--font-mono);
+  font-size: .72rem; letter-spacing: .1em; text-transform: uppercase;
+  padding: 10px; border-radius: var(--r-pill); cursor: pointer;
+  transition: all .2s;
+}
+.login-btn:hover { background: var(--blue); color: #fff; }
+.login-btn:disabled { opacity: .5; cursor: not-allowed; }
+.login-error {
+  font-family: var(--font-mono); font-size: .65rem;
+  color: var(--red); margin-top: 10px; min-height: 18px;
+  text-align: center;
+}
+
+/* ── Topbar user info ────────────────────────────────────────────────────── */
+.topbar-user {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-mono); font-size: .62rem; color: var(--muted);
+}
+.topbar-role-badge {
+  padding: 2px 10px; border-radius: var(--r-pill);
+  font-size: .58rem; letter-spacing: .08em;
+  border: 1px solid var(--blue); color: var(--blue); background: var(--blue-dim);
+}
+.topbar-role-badge.admin { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+.btn-logout {
+  background: transparent; border: 1px solid var(--border2);
+  color: var(--muted); font-family: var(--font-mono); font-size: .6rem;
+  padding: 3px 11px; border-radius: var(--r-pill); cursor: pointer;
+  transition: all .15s; letter-spacing: .06em;
+}
+.btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+/* ── Page Admin ──────────────────────────────────────────────────────────── */
+.admin-section { margin-bottom: 32px; }
+.users-table-wrap { overflow-x: auto; }
+.users-table {
+  width: 100%; border-collapse: collapse;
+  font-size: .78rem; min-width: 500px;
+}
+.users-table th {
+  text-align: left; padding: 9px 14px;
+  font-family: var(--font-cond); font-size: .65rem;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.users-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.users-table tr:last-child td { border-bottom: none; }
+.users-table tr:hover td { background: var(--surface2); }
+.role-pill {
+  display: inline-block; padding: 2px 10px;
+  border-radius: var(--r-pill); font-family: var(--font-mono);
+  font-size: .58rem; letter-spacing: .06em;
+  border: 1px solid;
+}
+.role-pill.superadmin { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); }
+.role-pill.user       { color: var(--blue);  border-color: var(--blue);  background: var(--blue-dim); }
+.btn-admin-sm {
+  font-family: var(--font-mono); font-size: .6rem; letter-spacing: .04em;
+  padding: 3px 11px; border-radius: var(--r-pill); cursor: pointer;
+  transition: all .15s; margin-left: 4px;
+}
+.btn-admin-sm.edit   { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); }
+.btn-admin-sm.edit:hover { border-color: var(--blue); color: var(--blue); }
+.btn-admin-sm.del    { background: var(--red-dim); border: 1px solid var(--red); color: #fcc; }
+.btn-admin-sm.del:hover  { background: #3a0a0a; }
+.btn-admin-sm.pwd    { background: var(--amber-dim); border: 1px solid var(--amber); color: var(--amber); }
+.btn-admin-sm.pwd:hover  { background: var(--amber); color: #000; }
 </style>
 </head>
 <body>
+
+<!-- ── Login overlay ────────────────────────────────────────────────────── -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">🏥 <span>HMRA</span> Monitor</div>
+    <div class="login-sub">ENV MONITORING v2.0 — Connexion requise</div>
+    <div class="login-field">
+      <label>Identifiant</label>
+      <input type="text" id="login-username" placeholder="admin" autocomplete="username"/>
+    </div>
+    <div class="login-field">
+      <label>Mot de passe</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Connexion</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
 
 <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
 <nav class="sidebar">
@@ -735,6 +861,11 @@ tr:hover td { background: var(--surface2); }
     <div class="nav-item" data-page="management" onclick="navigate('management', this)">
       <span class="nav-icon">⚙️</span> Management
     </div>
+
+    <div class="nav-section-label admin-only" style="display:none">Administration</div>
+    <div class="nav-item admin-only" data-page="admin" onclick="navigate('admin', this)" style="display:none">
+      <span class="nav-icon">👤</span> Utilisateurs
+    </div>
   </div>
 
   <div class="sidebar-footer">
@@ -742,6 +873,7 @@ tr:hover td { background: var(--surface2); }
       <div class="live-dot"></div>
       <span id="last-update">—</span>
     </div>
+    <button class="btn-logout" style="margin-top:10px;width:100%" onclick="doLogout()">⏻ Déconnexion</button>
   </div>
 </nav>
 
@@ -751,6 +883,10 @@ tr:hover td { background: var(--surface2); }
     <div class="topbar-title" id="topbar-title">Dashboard</div>
     <div class="topbar-right">
       <span id="topbar-meta"></span>
+      <div class="topbar-user">
+        <span id="topbar-username"></span>
+        <span class="topbar-role-badge" id="topbar-role-badge"></span>
+      </div>
     </div>
   </div>
 
@@ -846,12 +982,35 @@ tr:hover td { background: var(--surface2); }
       <!-- Unités -->
       <div class="section-header">
         <div class="section-title">Unités</div>
-        <button class="btn-new" onclick="openUnitModal()">+ Nouvelle unité</button>
+        <span id="btn-new-unit"></span>
       </div>
       <div class="units-grid" id="mgmt-units">
         <div class="no-data">Chargement…</div>
       </div>
 
+    </div>
+
+    <!-- ══ PAGE : ADMIN ═══════════════════════════════════════════════════ -->
+    <div class="page" id="page-admin">
+      <div class="section-header">
+        <div class="section-title">Gestion des utilisateurs</div>
+        <button class="btn-new" onclick="openUserModal()">+ Nouvel utilisateur</button>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
+        <div class="users-table-wrap">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Identifiant</th><th>Rôle</th><th>Service</th>
+                <th>Créé le</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="5" style="color:var(--muted);font-family:var(--font-mono);font-size:.7rem;padding:20px">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
   </div><!-- /page-content -->
@@ -918,7 +1077,7 @@ tr:hover td { background: var(--surface2); }
       <select class="modal-select" id="unit-form-type"></select>
     </div>
     <div class="modal-field">
-      <label>Service d'utilisation</label>
+      <label>Localisation</label>
       <select class="modal-select" id="unit-form-utilisation"></select>
     </div>
     <div class="modal-field">
@@ -945,9 +1104,177 @@ tr:hover td { background: var(--surface2); }
   </div>
 </div>
 
+<!-- ── Modal : créer / éditer utilisateur ────────────────────────────────── -->
+<div class="modal-overlay" id="modal-user-form">
+  <div class="modal-box">
+    <h3 id="user-form-title">Nouvel utilisateur</h3>
+    <input type="hidden" id="user-form-id"/>
+    <div class="modal-field">
+      <label>Identifiant *</label>
+      <input class="modal-input" id="user-form-username" type="text" placeholder="ex : pharmacie_user"/>
+    </div>
+    <div class="modal-field" id="user-form-password-field">
+      <label>Mot de passe *</label>
+      <input class="modal-input" id="user-form-password" type="password" placeholder="••••••••"/>
+    </div>
+    <div class="modal-field">
+      <label>Rôle</label>
+      <select class="modal-select" id="user-form-role" onchange="toggleServiceField()">
+        <option value="user">Utilisateur</option>
+        <option value="superadmin">Superadmin</option>
+      </select>
+    </div>
+    <div class="modal-field" id="user-form-service-field">
+      <label>Service *</label>
+      <select class="modal-select" id="user-form-service"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-user-form')">Annuler</button>
+      <button class="modal-btn modal-btn-confirm" onclick="executeUserForm()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal : reset mot de passe ────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-reset-pwd">
+  <div class="modal-box">
+    <h3>Réinitialiser le mot de passe</h3>
+    <p class="modal-sub" id="reset-pwd-label"></p>
+    <input type="hidden" id="reset-pwd-user-id"/>
+    <div class="modal-field">
+      <label>Nouveau mot de passe *</label>
+      <input class="modal-input" id="reset-pwd-value" type="password" placeholder="••••••••"/>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-reset-pwd')">Annuler</button>
+      <button class="modal-btn modal-btn-confirm" onclick="executeResetPwd()">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal : supprimer utilisateur ─────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-delete-user">
+  <div class="modal-box danger">
+    <h3>⚠ Supprimer l'utilisateur ?</h3>
+    <p class="modal-p">L'utilisateur <strong id="delete-user-name" style="color:#fff"></strong> sera supprimé.</p>
+    <input type="hidden" id="delete-user-id"/>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('modal-delete-user')">Annuler</button>
+      <button class="modal-btn modal-btn-danger" onclick="executeDeleteUser()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
 
 
 <script>
+// ══ AUTH ══════════════════════════════════════════════════════════════════════
+let authToken   = null;
+let currentRole = null;
+let currentService = null;
+let currentUsername = null;
+
+// Fetch authentifié
+async function apiFetch(url, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    doLogout();
+    throw new Error("Session expirée");
+  }
+  return res;
+}
+
+function applySession(data) {
+  authToken       = data.access_token;
+  currentRole     = data.role;
+  currentService  = data.service;
+  currentUsername = data.username;
+
+  sessionStorage.setItem("hmra_token",    data.access_token);
+  sessionStorage.setItem("hmra_role",     data.role);
+  sessionStorage.setItem("hmra_service",  data.service || "");
+  sessionStorage.setItem("hmra_username", data.username);
+
+  document.getElementById("login-overlay").classList.add("hidden");
+  document.getElementById("topbar-username").textContent = currentUsername;
+  const badge = document.getElementById("topbar-role-badge");
+  badge.textContent = currentRole === "superadmin" ? "SUPERADMIN" : (currentService || "USER");
+  badge.classList.toggle("admin", currentRole === "superadmin");
+  if (currentRole === "superadmin") {
+    document.querySelectorAll(".admin-only").forEach(el => el.style.display = "");
+  }
+}
+
+async function doLogin() {
+  const username = document.getElementById("login-username").value.trim();
+  const password = document.getElementById("login-password").value;
+  const errEl    = document.getElementById("login-error");
+  const btn      = document.getElementById("login-btn");
+
+  if (!username || !password) { errEl.textContent = "Remplissez tous les champs"; return; }
+
+  btn.disabled = true;
+  errEl.textContent = "";
+
+  try {
+    const body = new URLSearchParams({ username, password });
+    const res  = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      errEl.textContent = j.detail || "Identifiants incorrects";
+      return;
+    }
+    const data = await res.json();
+    applySession(data);
+    init();
+
+  } catch(e) {
+    errEl.textContent = e.message || "Erreur réseau";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function doLogout() {
+  authToken = null; currentRole = null; currentService = null; currentUsername = null;
+  sessionStorage.removeItem("hmra_token");
+  sessionStorage.removeItem("hmra_role");
+  sessionStorage.removeItem("hmra_service");
+  sessionStorage.removeItem("hmra_username");
+  document.getElementById("login-overlay").classList.remove("hidden");
+  document.getElementById("login-password").value = "";
+  document.getElementById("login-error").textContent = "";
+  document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
+  clearInterval(refreshInterval);
+  clearInterval(chartsInterval);
+  clearInterval(unitsInterval);
+}
+
+// Restaurer la session depuis sessionStorage au chargement
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("login-password")
+    .addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+  document.getElementById("login-username")
+    .addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("login-password").focus(); });
+
+  const token = sessionStorage.getItem("hmra_token");
+  if (token) {
+    applySession({
+      access_token: token,
+      role:         sessionStorage.getItem("hmra_role"),
+      service:      sessionStorage.getItem("hmra_service"),
+      username:     sessionStorage.getItem("hmra_username"),
+    });
+    init();
+  }
+});
+
 // ══ Constants ════════════════════════════════════════════════════════════════
 // SENSORS est construit dynamiquement depuis sensorConfigs + statsData
 // Plus de liste statique — tout vient du serveur
@@ -994,10 +1321,11 @@ function navigate(page, el) {
   currentPage = page;
   localStorage.setItem("currentPage", page);
 
-  const titles = { dashboard: "Dashboard", detail: "Détail capteur", management: "Management" };
+  const titles = { dashboard: "Dashboard", detail: "Détail capteur", management: "Management", admin: "Utilisateurs" };
   document.getElementById("topbar-title").textContent = titles[page] || page;
 
   if (page === "management") { renderMgmtSensors(); loadUnits(); }
+  if (page === "admin")      { loadUsers(); }
   if (page === "detail" && detailSid) loadDetailPage(detailSid);
 }
 
@@ -1037,7 +1365,7 @@ async function loadAll() {
 
 async function loadStats() {
   try {
-    const res = await fetch("/stats");
+    const res = await apiFetch("/stats");
     const j   = await res.json();
     statsData = j.sensors || [];
   } catch(e) { return; }
@@ -1054,7 +1382,7 @@ async function loadStats() {
 
 async function loadSensorConfigs() {
   try {
-    const res = await fetch("/sensors/config");
+    const res = await apiFetch("/sensors/config");
     const d   = await res.json();
     sensorConfigs = {};
     d.forEach(s => { sensorConfigs[s.sid] = s; });
@@ -1063,7 +1391,7 @@ async function loadSensorConfigs() {
 
 async function loadThresholds() {
   try {
-    const res = await fetch("/thresholds");
+    const res = await apiFetch("/thresholds");
     const j   = await res.json();
     thresholdsData = j.thresholds || {};
   } catch(e) {}
@@ -1071,7 +1399,7 @@ async function loadThresholds() {
 
 async function loadUnits() {
   try {
-    const res = await fetch("/units");
+    const res = await apiFetch("/units");
     const j   = await res.json();
     unitsData = j.units || [];
   } catch(e) { unitsData = []; }
@@ -1080,7 +1408,7 @@ async function loadUnits() {
 
 async function loadFormOptions() {
   try {
-    const res = await fetch("/units/form-options");
+    const res = await apiFetch("/units/form-options");
     formOptions = await res.json();
   } catch(e) {}
 }
@@ -1210,7 +1538,7 @@ function loadDetailUnit(sid, s) {
       <div class="detail-unit-field-val">${s.unit_type || "—"}</div>
     </div>
     <div class="detail-unit-field">
-      <div class="detail-unit-field-label">Service d'utilisation</div>
+      <div class="detail-unit-field-label">Localisation</div>
       <div class="detail-unit-field-val">${s.unit_service_utilisation || "—"}</div>
     </div>
     <div class="detail-unit-field">
@@ -1228,7 +1556,7 @@ async function loadDetailCharts(sid) {
   const cfg  = getSensorInfo(sid);
   const scfg = sensorConfigs[sid] || { mode: "active" };
 
-  const res = await fetch(`/history/${sid}?hours=${detailPeriod}`);
+  const res = await apiFetch(`/history/${sid}?hours=${detailPeriod}`);
   const j   = await res.json();
   if (!j.count) { container.innerHTML = '<div class="no-data">Aucune donnée sur cette période</div>'; return; }
 
@@ -1287,7 +1615,7 @@ async function loadDetailCharts(sid) {
 }
 
 async function loadDetailAlerts(sid) {
-  const res  = await fetch(`/alerts?limit=20`);
+  const res  = await apiFetch(`/alerts?limit=20`);
   const json = await res.json();
   const cont = document.getElementById("detail-alerts-body");
   const filtered = (json.alerts || []).filter(a => a.sid === sid);
@@ -1329,7 +1657,7 @@ async function loadAllCharts() {
   for (const [sidStr] of Object.entries(sensorConfigs)) {
     const sid = parseInt(sidStr);
     try {
-      const res = await fetch(`/history/${sid}?hours=${mainPeriod}`);
+      const res = await apiFetch(`/history/${sid}?hours=${mainPeriod}`);
       const j   = await res.json();
       if (j.count) historyCache[sid] = j;
     } catch(e) {}
@@ -1465,7 +1793,7 @@ async function loadAllCharts() {
 // ══ Alerts ════════════════════════════════════════════════════════════════════
 // ══ Alerts ════════════════════════════════════════════════════════════════════
 async function loadAlerts() {
-  const res  = await fetch("/alerts?limit=40");
+  const res  = await apiFetch("/alerts?limit=40");
   const json = await res.json();
   const cont = document.getElementById("alerts-body");
 
@@ -1493,13 +1821,13 @@ async function loadAlerts() {
 }
 
 async function ackOne(id) {
-  await fetch(`/alerts/${id}/acknowledge`, { method:"POST" });
+  await apiFetch(`/alerts/${id}/acknowledge`, { method:"POST" });
   loadStats(); loadAlerts();
   if (currentPage === "detail" && detailSid) loadDetailAlerts(detailSid);
 }
 
 async function acknowledgeAll() {
-  await fetch("/alerts/acknowledge-all", { method:"POST" });
+  await apiFetch("/alerts/acknowledge-all", { method:"POST" });
   loadStats(); loadAlerts();
 }
 
@@ -1561,7 +1889,7 @@ function renderMgmtSensors() {
           <!-- STATUT -->
           <div class="mgmt-row">
             <span class="mgmt-row-label">Statut</span>
-
+            ${currentRole === 'superadmin' ? `
             <label class="toggle" title="${
                     mode === "disabled"
                       ? "Activer"
@@ -1571,7 +1899,7 @@ function renderMgmtSensors() {
                   }">
                     <input type="checkbox" ${mode === "active" ? "checked" : ""} onchange="toggleSensor(${sid}, this)">
                     <span class="toggle-slider"></span>
-                  </label>
+                  </label>` : ''}
                   <span style="font-size:.6rem;color:${statusColor}">
                     ${statusLabel}
                   </span>
@@ -1599,9 +1927,10 @@ function renderMgmtSensors() {
           </div>
 
           <!-- ACTIONS -->
+          ${currentRole === 'superadmin' ? `
           <div class="mgmt-actions">
             <button class="btn-mgmt btn-del" onclick="openDeleteSensorModal(${sid})">🗑 Supprimer</button>
-          </div>
+          </div>` : ''}
 
         </div>
       </div>
@@ -1622,7 +1951,7 @@ async function toggleSensor(sid, checkbox) {
     return;
   }
 
-  await fetch(`/sensors/${sid}/mode`, {
+  await apiFetch(`/sensors/${sid}/mode`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ mode: "active" })
@@ -1635,7 +1964,7 @@ async function toggleSensor(sid, checkbox) {
 async function executeDisable() {
   const note = document.getElementById("disable-note").value || null;
 
-  await fetch(`/sensors/${pendingDisableSid}/mode`, {
+  await apiFetch(`/sensors/${pendingDisableSid}/mode`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ mode: "disabled", note })
@@ -1655,7 +1984,7 @@ async function saveThreshold(sid, param) {
   if (isNaN(vmin) || isNaN(vmax) || vmin >= vmax) {
     alert("Valeurs invalides : vmin doit être strictement inférieur à vmax."); return;
   }
-  await fetch(`/thresholds/${sid}/${param}`, {
+  await apiFetch(`/thresholds/${sid}/${param}`, {
     method:"PUT", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({ vmin, vmax }),
   });
@@ -1667,6 +1996,11 @@ async function saveThreshold(sid, param) {
 
 // ══ Units ══════════════════════════════════════════════════════════════════════
 function renderUnits() {
+  // Bouton "+ Nouvelle unité" visible seulement pour superadmin
+  const btnSlot = document.getElementById("btn-new-unit");
+  if (btnSlot) {
+    btnSlot.innerHTML = '<button class="btn-new" onclick="openUnitModal()">+ Nouvelle unité</button>';
+  }
   const grid = document.getElementById("mgmt-units");
   if (!unitsData.length) { grid.innerHTML = '<div class="no-data">// AUCUNE UNITÉ DÉFINIE</div>'; return; }
   grid.innerHTML = unitsData.map(u => {
@@ -1678,13 +2012,13 @@ function renderUnits() {
       <div class="unit-card-name">${u.name}</div>
       <div class="unit-card-type">${u.unit_type||"—"}</div>
       <div class="unit-card-info">
-        <div class="unit-info-row"><span>UTILISATION</span><span>${u.service_utilisation||"—"}</span></div>
+        <div class="unit-info-row"><span>LOCALISATION</span><span>${u.service_utilisation||"—"}</span></div>
         <div class="unit-info-row"><span>RESPONSABLE</span><span>${u.service_responsable||"—"}</span></div>
       </div>
       <div class="unit-sensors">${sidsHtml}</div>
       <div class="unit-actions">
         <button class="btn-unit" onclick="openUnitModal(${u.unit_id})">✏ Modifier</button>
-        <button class="btn-unit del" onclick="openDeleteUnitModal(${u.unit_id},'${u.name.replace(/'/g,"\\'")}')">🗑</button>
+        ${currentRole === 'superadmin' ? `<button class="btn-unit del" onclick="openDeleteUnitModal(${u.unit_id},'${u.name.replace(/'/g,"\\'")}')">🗑</button>` : ''}
       </div>
     </div>`;
   }).join("");
@@ -1722,8 +2056,8 @@ async function executeUnitForm() {
     service_responsable: document.getElementById("unit-form-responsable").value,
   });
   const h = { "Content-Type": "application/json" };
-  if (id) await fetch(`/units/${id}`, { method:"PUT",  headers:h, body });
-  else    await fetch(`/units`,        { method:"POST", headers:h, body });
+  if (id) await apiFetch(`/units/${id}`, { method:"PUT",  headers:h, body });
+  else    await apiFetch(`/units`,        { method:"POST", headers:h, body });
   closeModal("modal-unit-form");
   await loadUnits(); renderMgmtSensors(); renderCards();
 }
@@ -1735,7 +2069,7 @@ function openDeleteUnitModal(id, name) {
 }
 async function executeDeleteUnit() {
   if (!pendingDeleteUnitId) return;
-  await fetch(`/units/${pendingDeleteUnitId}`, { method:"DELETE" });
+  await apiFetch(`/units/${pendingDeleteUnitId}`, { method:"DELETE" });
   closeModal("modal-delete-unit"); pendingDeleteUnitId = null;
   await loadUnits(); await loadSensorConfigs(); renderMgmtSensors(); renderCards();
 }
@@ -1751,7 +2085,7 @@ function openDeleteSensorModal(sid) {
 async function executeDeleteSensor() {
   if (!pendingDeleteSid) return;
   const sid = parseInt(pendingDeleteSid);  // forcer entier pour matcher les clés
-  await fetch(`/sensors/${sid}`, { method: "DELETE" });
+  await apiFetch(`/sensors/${sid}`, { method: "DELETE" });
   closeModal("modal-delete-sensor"); pendingDeleteSid = null;
   // Purger immédiatement les données locales sans attendre le prochain refresh
   delete sensorConfigs[sid];
@@ -1759,7 +2093,137 @@ async function executeDeleteSensor() {
   renderMgmtSensors(); renderCards();
 }
 
+// ══ Admin — Users ════════════════════════════════════════════════════════════
+let adminServices = [];
+
+async function loadAdminServices() {
+  try {
+    const res = await apiFetch("/admin/services");
+    const j   = await res.json();
+    adminServices = j.services || [];
+  } catch(e) {}
+}
+
+async function loadUsers() {
+  try {
+    const res  = await apiFetch("/admin/users");
+    const j    = await res.json();
+    const tbody = document.getElementById("users-tbody");
+    const users = j.users || [];
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted);font-family:var(--font-mono);font-size:.7rem;padding:20px">Aucun utilisateur</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = users.map(u => {
+      const created = new Date(u.created_at).toLocaleDateString("fr-BE");
+      const isSelf  = u.username === currentUsername;
+      const actions = isSelf ? `<span style="color:var(--muted);font-family:var(--font-mono);font-size:.6rem">(vous)</span>` : `
+        <button class="btn-admin-sm edit" onclick="openUserModal(${u.id})">✏ Éditer</button>
+        <button class="btn-admin-sm pwd"  onclick="openResetPwdModal(${u.id},'${u.username}')">🔑 MDP</button>
+        ${u.role !== 'superadmin' ? `<button class="btn-admin-sm del" onclick="openDeleteUserModal(${u.id},'${u.username}')">🗑</button>` : ''}
+      `;
+      return `<tr>
+        <td style="font-family:var(--font-mono)">${u.username}</td>
+        <td><span class="role-pill ${u.role}">${u.role === 'superadmin' ? 'Superadmin' : 'Utilisateur'}</span></td>
+        <td style="color:var(--muted)">${u.service || '—'}</td>
+        <td style="color:var(--muted);font-family:var(--font-mono);font-size:.65rem">${created}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join("");
+  } catch(e) {}
+}
+
+function toggleServiceField() {
+  const role = document.getElementById("user-form-role").value;
+  document.getElementById("user-form-service-field").style.display =
+    role === "superadmin" ? "none" : "";
+}
+
+async function openUserModal(user_id = null) {
+  await loadAdminServices();
+  const sel = document.getElementById("user-form-service");
+  sel.innerHTML = adminServices.map(s => `<option value="${s}">${s}</option>`).join("");
+
+  document.getElementById("user-form-id").value       = user_id || "";
+  document.getElementById("user-form-password").value = "";
+
+  if (user_id) {
+    // Édition — on récupère les infos depuis le tableau déjà chargé
+    const res = await apiFetch("/admin/users");
+    const j   = await res.json();
+    const u   = (j.users || []).find(x => x.id === user_id);
+    if (!u) return;
+    document.getElementById("user-form-title").textContent    = "Modifier l'utilisateur";
+    document.getElementById("user-form-username").value       = u.username;
+    document.getElementById("user-form-role").value           = u.role;
+    document.getElementById("user-form-service").value        = u.service || "";
+    document.getElementById("user-form-password-field").style.display = "none";
+  } else {
+    document.getElementById("user-form-title").textContent    = "Nouvel utilisateur";
+    document.getElementById("user-form-username").value       = "";
+    document.getElementById("user-form-role").value           = "user";
+    document.getElementById("user-form-password-field").style.display = "";
+  }
+  toggleServiceField();
+  document.getElementById("modal-user-form").classList.add("open");
+  setTimeout(() => document.getElementById("user-form-username").focus(), 80);
+}
+
+async function executeUserForm() {
+  const id       = document.getElementById("user-form-id").value;
+  const username = document.getElementById("user-form-username").value.trim();
+  const password = document.getElementById("user-form-password").value.trim();
+  const role     = document.getElementById("user-form-role").value;
+  const service  = document.getElementById("user-form-service").value;
+
+  const body = { username, role, service };
+  if (!id) body.password = password;
+
+  const res = await apiFetch(
+    id ? `/admin/users/${id}` : "/admin/users",
+    { method: id ? "PUT" : "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) }
+  );
+  const j = await res.json();
+  if (j.status === "error") { alert(j.detail); return; }
+  closeModal("modal-user-form");
+  loadUsers();
+}
+
+function openResetPwdModal(user_id, username) {
+  document.getElementById("reset-pwd-user-id").value  = user_id;
+  document.getElementById("reset-pwd-label").textContent = `Utilisateur : ${username}`;
+  document.getElementById("reset-pwd-value").value    = "";
+  document.getElementById("modal-reset-pwd").classList.add("open");
+}
+
+async function executeResetPwd() {
+  const user_id  = document.getElementById("reset-pwd-user-id").value;
+  const password = document.getElementById("reset-pwd-value").value.trim();
+  if (!password) { alert("Le mot de passe ne peut pas être vide"); return; }
+  await apiFetch(`/admin/users/${user_id}/reset-password`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ password }),
+  });
+  closeModal("modal-reset-pwd");
+}
+
+function openDeleteUserModal(user_id, username) {
+  document.getElementById("delete-user-id").value       = user_id;
+  document.getElementById("delete-user-name").textContent = username;
+  document.getElementById("modal-delete-user").classList.add("open");
+}
+
+async function executeDeleteUser() {
+  const user_id = document.getElementById("delete-user-id").value;
+  await apiFetch(`/admin/users/${user_id}`, { method: "DELETE" });
+  closeModal("modal-delete-user");
+  loadUsers();
+}
+
 // ══ Init & refresh ════════════════════════════════════════════════════════════
+let refreshInterval, chartsInterval, unitsInterval;
+
 async function init() {
   await Promise.all([
     loadFormOptions(),
@@ -1770,12 +2234,15 @@ async function init() {
 
   await loadStats();
 
-  // ✅ AJOUT (important)
   const savedPage = localStorage.getItem("currentPage") || "dashboard";
   navigate(savedPage);
 
   loadAllCharts();
   loadAlerts();
+
+  refreshInterval = setInterval(refresh,       10_000);
+  chartsInterval  = setInterval(loadAllCharts, 60_000);
+  unitsInterval   = setInterval(loadUnits,     30_000);
 }
 
 async function refresh() {
@@ -1784,16 +2251,12 @@ async function refresh() {
   await loadStats();
   loadAlerts();
   if (currentPage === "management") renderMgmtSensors();
+  if (currentPage === "admin")      loadUsers();
   if (currentPage === "detail" && detailSid) {
     updateDetailValues(detailSid);
     loadDetailAlerts(detailSid);
   }
 }
-
-init();
-setInterval(refresh,       10_000);
-setInterval(loadAllCharts, 60_000);
-setInterval(loadUnits,     30_000);
 </script>
 </body>
 </html>

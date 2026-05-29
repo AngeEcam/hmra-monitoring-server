@@ -34,7 +34,9 @@ def init_db():
             value           REAL,
             threshold       TEXT,
             acknowledged    INTEGER DEFAULT 0,
-            acknowledged_at TEXT
+            acknowledged_at TEXT,
+            auto_resolved   INTEGER DEFAULT 0,
+            resolved_at     TEXT
         )
     """)
     conn.execute("""
@@ -49,12 +51,12 @@ def init_db():
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS sensor_config (
-            sid                   INTEGER PRIMARY KEY,
-            mode                  TEXT NOT NULL DEFAULT "active",
-            deleted               INTEGER DEFAULT 0,
-            note                  TEXT,
-            unit_id               INTEGER,
-            name                  TEXT
+            sid     INTEGER PRIMARY KEY,
+            mode    TEXT NOT NULL DEFAULT 'active',
+            deleted INTEGER DEFAULT 0,
+            note    TEXT,
+            unit_id INTEGER,
+            name    TEXT
         )
     """)
     conn.execute("""
@@ -72,6 +74,19 @@ def init_db():
         CREATE TABLE IF NOT EXISTS meta (
             key   TEXT PRIMARY KEY,
             value TEXT
+        )
+    """)
+
+    # ── Table utilisateurs ────────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            username     TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role         TEXT NOT NULL DEFAULT 'user',
+            service      TEXT,
+            created_at   TEXT NOT NULL,
+            updated_at   TEXT
         )
     """)
 
@@ -103,12 +118,127 @@ def init_db():
     print(f"[DB] Base initialisée : {os.path.abspath(DB_PATH)}")
 
 
+def ensure_superadmin(username: str, password_hash: str):
+    """
+    Crée le compte superadmin s'il n'existe pas encore.
+    Appelé au démarrage depuis main.py.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    existing = conn.execute(
+        "SELECT id FROM users WHERE role = 'superadmin' LIMIT 1"
+    ).fetchone()
+    if not existing:
+        now = datetime.now().isoformat()
+        conn.execute("""
+            INSERT INTO users (username, password_hash, role, service, created_at)
+            VALUES (?, ?, 'superadmin', NULL, ?)
+        """, (username, password_hash, now))
+        conn.commit()
+        print(f"[AUTH] Compte superadmin '{username}' créé")
+    conn.close()
+
+
+# ── CRUD utilisateurs ─────────────────────────────────────────────────────────
+
+def get_user_by_username(username: str):
+    """Retourne l'utilisateur correspondant au username, ou None."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT * FROM users WHERE username = ?", (username,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_all_users() -> list:
+    """Retourne tous les utilisateurs (sans le hash du mot de passe)."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT id, username, role, service, created_at, updated_at FROM users ORDER BY username"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def create_user(username: str, password_hash: str, role: str, service: str) -> dict:
+    """Crée un nouvel utilisateur. Lève ValueError si le username existe déjà."""
+    now = datetime.now().isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cur = conn.execute("""
+            INSERT INTO users (username, password_hash, role, service, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (username, password_hash, role, service or None, now))
+        user_id = cur.lastrowid
+        conn.commit()
+        print(f"[AUTH] Utilisateur créé : {username} (role={role}, service={service})")
+        return {
+            "id": user_id, "username": username,
+            "role": role, "service": service, "created_at": now
+        }
+    except sqlite3.IntegrityError:
+        raise ValueError(f"Le nom d'utilisateur '{username}' est déjà pris")
+    finally:
+        conn.close()
+
+
+def update_user(user_id: int, username: str = None, password_hash: str = None,
+                role: str = None, service: str = None) -> bool:
+    """Met à jour les champs non-None d'un utilisateur. Retourne True si trouvé."""
+    conn = sqlite3.connect(DB_PATH)
+    now = datetime.now().isoformat()
+
+    fields, params = [], []
+    if username is not None:
+        fields.append("username = ?")
+        params.append(username)
+    if password_hash is not None:
+        fields.append("password_hash = ?")
+        params.append(password_hash)
+    if role is not None:
+        fields.append("role = ?")
+        params.append(role)
+    if service is not None:
+        fields.append("service = ?")
+        params.append(service if service != "" else None)
+
+    if not fields:
+        conn.close()
+        return False
+
+    fields.append("updated_at = ?")
+    params.append(now)
+    params.append(user_id)
+
+    cur = conn.execute(
+        f"UPDATE users SET {', '.join(fields)} WHERE id = ?", params
+    )
+    found = cur.rowcount > 0
+    conn.commit()
+    conn.close()
+    return found
+
+
+def delete_user(user_id: int) -> bool:
+    """Supprime un utilisateur. Retourne True si trouvé."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.execute("DELETE FROM users WHERE id = ? AND role != 'superadmin'", (user_id,))
+    found = cur.rowcount > 0
+    conn.commit()
+    conn.close()
+    return found
+
+
+def reset_user_password(user_id: int, new_hash: str) -> bool:
+    """Réinitialise le mot de passe d'un utilisateur."""
+    return update_user(user_id, password_hash=new_hash)
+
+
 # ── Écriture mesures ──────────────────────────────────────────────────────────
 
 def _pt100_default_name(sid: int):
-    """Retourne le nom automatique si sid encode un PT100 (sid >= 16).
-      sid = (slave_id << 4) | canal  ->  "PT100 slave X canal Y"
-    """
     if sid is not None and sid >= 16:
         slave_id = sid >> 4
         canal    = sid & 0xF
@@ -121,7 +251,6 @@ def insert_measurement(data: dict, received_at: str):
     name = _pt100_default_name(sid)
     conn = sqlite3.connect(DB_PATH)
     if name:
-        # PT100 : insère avec nom auto, ne l'écrase pas si déjà renommé
         conn.execute("""
             INSERT INTO sensor_config (sid, mode, name)
             VALUES (?, 'active', ?)
@@ -186,20 +315,13 @@ def check_and_log_alerts(data: dict, received_at: str) -> list:
                 """, (received_at, sid, param, value, threshold_str))
                 alerts.append({"sid": sid, "param": param,
                                 "value": value, "threshold": threshold_str})
-                print(f"[ALARME] sid={sid} {param}={value} hors seuil {threshold_str}")
-            # else: alarme déjà ouverte → pas de doublon
-
         else:
             if active:
                 conn.execute("""
                     UPDATE alert_log
-                    SET acknowledged=1,
-                        acknowledged_at=?,
-                        auto_resolved=1,
-                        resolved_at=?
+                    SET acknowledged=1, acknowledged_at=?, auto_resolved=1, resolved_at=?
                     WHERE id=?
                 """, (received_at, received_at, active[0]))
-                print(f"[AUTO-ACK] sid={sid} {param}={value} revenu OK → alarme #{active[0]} clôturée automatiquement")
 
     conn.commit()
     conn.close()
@@ -231,13 +353,11 @@ def acknowledge_all_alerts() -> int:
 # ── Gestion des seuils ────────────────────────────────────────────────────────
 
 def get_all_thresholds() -> dict:
-    """Retourne {sid: {param: {"vmin": float, "vmax": float, "updated_at": str}}}"""
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute(
         "SELECT sid, param, vmin, vmax, updated_at FROM thresholds ORDER BY sid, param"
     ).fetchall()
     conn.close()
-
     result = {}
     for sid, param, vmin, vmax, updated_at in rows:
         result.setdefault(sid, {})[param] = {
@@ -247,7 +367,6 @@ def get_all_thresholds() -> dict:
 
 
 def get_thresholds_for_sensor(sid: int) -> dict:
-    """Retourne {param: {"vmin": float, "vmax": float, "updated_at": str}} pour un sid."""
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute(
         "SELECT param, vmin, vmax, updated_at FROM thresholds WHERE sid = ?", (sid,)
@@ -260,30 +379,37 @@ def get_thresholds_for_sensor(sid: int) -> dict:
 
 
 def set_threshold(sid: int, param: str, vmin: float, vmax: float):
-    """Met à jour ou crée un seuil pour un (sid, param)."""
     now = datetime.now().isoformat()
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
         INSERT INTO thresholds (sid, param, vmin, vmax, updated_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(sid, param) DO UPDATE SET
-            vmin       = excluded.vmin,
-            vmax       = excluded.vmax,
-            updated_at = excluded.updated_at
+            vmin=excluded.vmin, vmax=excluded.vmax, updated_at=excluded.updated_at
     """, (sid, param, vmin, vmax, now))
     conn.commit()
     conn.close()
-    print(f"[THR] sid={sid} {param} → [{vmin}, {vmax}]")
 
 
 # ── Gestion des unités ────────────────────────────────────────────────────────
 
-def get_all_units() -> list:
-    """Retourne toutes les unités avec la liste des sid qui leur sont associés."""
+def get_all_units(service_filter: str = None) -> list:
+    """
+    Retourne toutes les unités avec leurs sid associés.
+    Si service_filter est fourni, ne retourne que les unités dont
+    service_utilisation OU service_responsable correspond.
+    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
 
-    units = conn.execute("SELECT * FROM units ORDER BY name ASC").fetchall()
+    if service_filter:
+        units = conn.execute("""
+            SELECT * FROM units
+            WHERE service_utilisation = ? OR service_responsable = ?
+            ORDER BY name ASC
+        """, (service_filter, service_filter)).fetchall()
+    else:
+        units = conn.execute("SELECT * FROM units ORDER BY name ASC").fetchall()
 
     sids_map = {}
     for r in conn.execute(
@@ -301,22 +427,17 @@ def get_all_units() -> list:
 
 
 def get_unit(unit_id: int):
-    """Retourne une unité par son id avec ses sid associés, ou None."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-
     unit = conn.execute(
         "SELECT * FROM units WHERE unit_id = ?", (unit_id,)
     ).fetchone()
     if not unit:
         conn.close()
         return None
-
     sids = [r[0] for r in conn.execute(
-        "SELECT sid FROM sensor_config WHERE unit_id = ? AND deleted = 0",
-        (unit_id,)
+        "SELECT sid FROM sensor_config WHERE unit_id = ? AND deleted = 0", (unit_id,)
     ).fetchall()]
-
     conn.close()
     d = dict(unit)
     d["sids"] = sids
@@ -334,7 +455,6 @@ def create_unit(name: str, unit_type: str,
     unit_id = cur.lastrowid
     conn.commit()
     conn.close()
-    print(f"[UNIT] Créée : unit_id={unit_id} — {name} ({unit_type})")
     return {
         "unit_id": unit_id, "name": name, "unit_type": unit_type,
         "service_utilisation": service_utilisation,
@@ -348,31 +468,24 @@ def update_unit(unit_id: int, name: str, unit_type: str,
     conn = sqlite3.connect(DB_PATH)
     cur = conn.execute("""
         UPDATE units
-        SET name = ?, unit_type = ?, service_utilisation = ?, service_responsable = ?
-        WHERE unit_id = ?
+        SET name=?, unit_type=?, service_utilisation=?, service_responsable=?
+        WHERE unit_id=?
     """, (name, unit_type, service_utilisation, service_responsable, unit_id))
     found = cur.rowcount > 0
     conn.commit()
     conn.close()
-    if found:
-        print(f"[UNIT] Modifiée : unit_id={unit_id} — {name}")
     return found
 
 
 def delete_unit(unit_id: int):
-    """Supprime une unité et désassigne ses capteurs."""
     conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "UPDATE sensor_config SET unit_id = NULL WHERE unit_id = ?", (unit_id,)
-    )
+    conn.execute("UPDATE sensor_config SET unit_id = NULL WHERE unit_id = ?", (unit_id,))
     conn.execute("DELETE FROM units WHERE unit_id = ?", (unit_id,))
     conn.commit()
     conn.close()
-    print(f"[UNIT] Supprimée : unit_id={unit_id}")
 
 
 def assign_sensor_to_unit(sid: int, unit_id):
-    """Assigne ou désassigne un capteur d'une unité."""
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
         INSERT INTO sensor_config (sid, unit_id)
@@ -381,31 +494,16 @@ def assign_sensor_to_unit(sid: int, unit_id):
     """, (sid, unit_id))
     conn.commit()
     conn.close()
-    if unit_id is not None:
-        print(f"[UNIT] sid={sid} assigné à unit_id={unit_id}")
-    else:
-        print(f"[UNIT] sid={sid} désassigné de son unité")
 
 
 # ── Gestion des capteurs ──────────────────────────────────────────────────────
 
 def get_sensor_config() -> dict:
     conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute(
-        "SELECT sid, mode, deleted, note, unit_id, name FROM sensor_config"
-    ).fetchall()
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("SELECT * FROM sensor_config WHERE deleted = 0").fetchall()
     conn.close()
-
-    return {
-        r[0]: {
-            "mode":    r[1] if r[1] else "active",
-            "deleted": bool(r[2]),
-            "note":    r[3],
-            "unit_id": r[4],
-            "name":    r[5],
-        }
-        for r in rows
-    }
+    return {r["sid"]: dict(r) for r in rows}
 
 
 def set_sensor_mode(sid: int, mode: str, note: str = None):
@@ -413,80 +511,116 @@ def set_sensor_mode(sid: int, mode: str, note: str = None):
     conn.execute("""
         INSERT INTO sensor_config (sid, mode, note)
         VALUES (?, ?, ?)
-        ON CONFLICT(sid) DO UPDATE SET
-            mode = excluded.mode,
-            note = COALESCE(excluded.note, sensor_config.note)
+        ON CONFLICT(sid) DO UPDATE SET mode=excluded.mode, note=excluded.note
     """, (sid, mode, note))
     conn.commit()
     conn.close()
 
 
 def rename_sensor(sid: int, name: str):
-    """Renomme un capteur. Crée la ligne sensor_config si elle n'existe pas."""
-    name = name.strip()
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
         INSERT INTO sensor_config (sid, name)
         VALUES (?, ?)
-        ON CONFLICT(sid) DO UPDATE SET name = excluded.name
+        ON CONFLICT(sid) DO UPDATE SET name=excluded.name
     """, (sid, name))
     conn.commit()
     conn.close()
-    print(f"[CFG] Capteur sid={sid} renommé → '{name}'")
 
 
 def delete_sensor(sid: int):
-    """Suppression définitive : efface config, mesures et alarmes du capteur."""
     conn = sqlite3.connect(DB_PATH)
-    conn.execute("DELETE FROM sensor_config WHERE sid = ?", (sid,))
-    conn.execute("DELETE FROM measurements WHERE sid = ?", (sid,))
-    conn.execute("DELETE FROM alert_log WHERE sid = ?", (sid,))
-    conn.execute("DELETE FROM thresholds WHERE sid = ?", (sid,))
+    conn.execute("UPDATE sensor_config SET deleted=1, unit_id=NULL WHERE sid=?", (sid,))
+    conn.execute("DELETE FROM measurements WHERE sid=?", (sid,))
+    conn.execute("DELETE FROM alert_log WHERE sid=?", (sid,))
+    conn.execute("DELETE FROM thresholds WHERE sid=?", (sid,))
     conn.commit()
     conn.close()
-    print(f"[CFG] Capteur sid={sid} supprimé définitivement")
 
 
 # ── Lecture mesures ───────────────────────────────────────────────────────────
 
-def query_stats() -> list:
+def query_stats(service_filter: str = None) -> list:
     """
-    Retourne la dernière mesure par capteur, enrichie des infos
-    d'unité et des seuils actifs.
+    Retourne la dernière mesure par capteur.
+    Si service_filter est fourni, ne retourne que les capteurs
+    appartenant à une unité de ce service.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    rows = conn.execute("""
-        SELECT m.*,
-               u.unit_id,
-               u.name                AS unit_name,
-               u.unit_type           AS unit_type,
-               u.service_utilisation AS unit_service_utilisation,
-               u.service_responsable AS unit_service_responsable
-        FROM measurements m
-        INNER JOIN (
-            SELECT sid, MAX(received_at) AS last FROM measurements GROUP BY sid
-        ) latest ON m.sid = latest.sid AND m.received_at = latest.last
-        INNER JOIN sensor_config sc ON sc.sid = m.sid
-        LEFT JOIN units u           ON u.unit_id = sc.unit_id
-        ORDER BY m.sid
-    """).fetchall()
+
+    if service_filter:
+        rows = conn.execute("""
+            SELECT m.*,
+                   u.unit_id,
+                   u.name                AS unit_name,
+                   u.unit_type           AS unit_type,
+                   u.service_utilisation AS unit_service_utilisation,
+                   u.service_responsable AS unit_service_responsable
+            FROM measurements m
+            INNER JOIN (
+                SELECT sid, MAX(received_at) AS last FROM measurements GROUP BY sid
+            ) latest ON m.sid = latest.sid AND m.received_at = latest.last
+            INNER JOIN sensor_config sc ON sc.sid = m.sid
+            INNER JOIN units u          ON u.unit_id = sc.unit_id
+            WHERE (u.service_utilisation = ? OR u.service_responsable = ?)
+            ORDER BY m.sid
+        """, (service_filter, service_filter)).fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT m.*,
+                   u.unit_id,
+                   u.name                AS unit_name,
+                   u.unit_type           AS unit_type,
+                   u.service_utilisation AS unit_service_utilisation,
+                   u.service_responsable AS unit_service_responsable
+            FROM measurements m
+            INNER JOIN (
+                SELECT sid, MAX(received_at) AS last FROM measurements GROUP BY sid
+            ) latest ON m.sid = latest.sid AND m.received_at = latest.last
+            INNER JOIN sensor_config sc ON sc.sid = m.sid
+            LEFT JOIN units u           ON u.unit_id = sc.unit_id
+            ORDER BY m.sid
+        """).fetchall()
+
     conn.close()
     return [dict(r) for r in rows]
 
 
-def query_alerts(limit: int = 50, only_active: bool = False) -> list:
+def query_alerts(limit: int = 50, only_active: bool = False,
+                 service_filter: str = None) -> list:
+    """
+    Retourne les alarmes.
+    Si service_filter est fourni, filtre sur les capteurs du service.
+    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    if only_active:
-        rows = conn.execute(
-            "SELECT * FROM alert_log WHERE acknowledged=0 "
-            "ORDER BY triggered_at DESC LIMIT ?", (limit,)
-        ).fetchall()
+
+    if service_filter:
+        base = """
+            SELECT al.*
+            FROM alert_log al
+            INNER JOIN sensor_config sc ON sc.sid = al.sid
+            INNER JOIN units u          ON u.unit_id = sc.unit_id
+            WHERE (u.service_utilisation = ? OR u.service_responsable = ?)
+        """
+        params = [service_filter, service_filter]
+        if only_active:
+            base += " AND al.acknowledged = 0"
+        base += " ORDER BY al.triggered_at DESC LIMIT ?"
+        params.append(limit)
+        rows = conn.execute(base, params).fetchall()
     else:
-        rows = conn.execute(
-            "SELECT * FROM alert_log ORDER BY triggered_at DESC LIMIT ?", (limit,)
-        ).fetchall()
+        if only_active:
+            rows = conn.execute(
+                "SELECT * FROM alert_log WHERE acknowledged=0 "
+                "ORDER BY triggered_at DESC LIMIT ?", (limit,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM alert_log ORDER BY triggered_at DESC LIMIT ?", (limit,)
+            ).fetchall()
+
     conn.close()
     return [dict(r) for r in rows]
 
@@ -528,6 +662,6 @@ def query_measurements(hours=None, sid=None, limit=100) -> list:
 
 def count_measurements() -> int:
     conn = sqlite3.connect(DB_PATH)
-    count = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]
+    n = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]
     conn.close()
-    return count
+    return n
