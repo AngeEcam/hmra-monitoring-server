@@ -27,6 +27,14 @@ SUPERADMIN_PASSWORD = os.getenv("SUPERADMIN_PASSWORD", "admin")
 TOKEN_EXPIRE_MINUTES = int(os.getenv("TOKEN_EXPIRE_MINUTES", "480"))
 
 # ─────────────────────────────────────────────
+#  NOTIFICATIONS — Email SMTP (Gmail)
+# ─────────────────────────────────────────────
+
+SMTP_SENDER   = os.getenv("SMTP_SENDER", "")
+SMTP_LOGIN    = os.getenv("SMTP_LOGIN", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+
+# ─────────────────────────────────────────────
 #  UNITÉS — Types d'équipements surveillés
 # ─────────────────────────────────────────────
 

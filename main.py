@@ -40,7 +40,10 @@ from database import (
     assign_sensor_to_unit,
     # Seuils
     get_all_thresholds, get_thresholds_for_sensor, set_threshold,
+    # Notifications
+    get_alert_recipients,
 )
+from notifier import notify_alerts
 from auth import (
     hash_password, verify_password,
     create_access_token, get_current_user, require_superadmin,
@@ -115,10 +118,12 @@ async def admin_create_user(request: Request, _: dict = Depends(require_superadm
     except Exception:
         return {"status": "error", "detail": "JSON invalide"}
 
-    username = payload.get("username", "").strip()
-    password = payload.get("password", "").strip()
-    role     = payload.get("role", "user")
-    service  = payload.get("service", "")
+    username     = payload.get("username", "").strip()
+    password     = payload.get("password", "").strip()
+    role         = payload.get("role", "user")
+    service      = payload.get("service", "")
+    email        = payload.get("email", "").strip()
+    notify_email = payload.get("notify_email", True)
 
     if not username or not password:
         return {"status": "error", "detail": "username et password sont obligatoires"}
@@ -128,7 +133,7 @@ async def admin_create_user(request: Request, _: dict = Depends(require_superadm
         return {"status": "error", "detail": "Un utilisateur non-superadmin doit avoir un service"}
 
     try:
-        user = create_user(username, hash_password(password), role, service)
+        user = create_user(username, hash_password(password), role, service, email, notify_email)
     except ValueError as e:
         return {"status": "error", "detail": str(e)}
 
@@ -152,6 +157,8 @@ async def admin_update_user(user_id: int, request: Request,
         username=payload.get("username"),
         role=payload.get("role"),
         service=payload.get("service"),
+        email=payload.get("email"),
+        notify_email=payload.get("notify_email"),
     )
     if not found:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")
@@ -228,6 +235,19 @@ async def ingest(request: Request):
     alerts = check_and_log_alerts(data, received_at) if mode == "active" else []
 
     name  = cfg.get("name") or f"Capteur {sid}"
+
+    # Envoi email si nouvelles alertes
+    if alerts:
+        unit_service = None
+        all_units = get_all_units()
+        unit_id = cfg.get("unit_id")
+        if unit_id:
+            unit = next((u for u in all_units if u["unit_id"] == unit_id), None)
+            if unit:
+                unit_service = unit.get("service_utilisation") or unit.get("service_responsable")
+        recipients = get_alert_recipients(service=unit_service)
+        notify_alerts(recipients, name, sid, alerts)
+
     now   = datetime.now().strftime("%H:%M:%S")
     label = {"active": "", "maintenance": " [MAINTENANCE]", "disabled": " [OFF]"}[mode]
     print(f"\n{'─'*45}")

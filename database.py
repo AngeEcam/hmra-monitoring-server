@@ -85,6 +85,8 @@ def init_db():
             password_hash TEXT NOT NULL,
             role         TEXT NOT NULL DEFAULT 'user',
             service      TEXT,
+            email        TEXT,
+            notify_email INTEGER DEFAULT 1,
             created_at   TEXT NOT NULL,
             updated_at   TEXT
         )
@@ -99,6 +101,8 @@ def init_db():
         ("sensor_config","unit_id",         "INTEGER"),
         ("sensor_config","mode",            "TEXT DEFAULT 'active'"),
         ("sensor_config","name",            "TEXT"),
+        ("users",        "email",           "TEXT"),
+        ("users",        "notify_email",    "INTEGER DEFAULT 1"),
     ]
 
     for table, col, default in migrations:
@@ -156,27 +160,30 @@ def get_all_users() -> list:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "SELECT id, username, role, service, created_at, updated_at FROM users ORDER BY username"
+        "SELECT id, username, role, service, email, notify_email, created_at, updated_at FROM users ORDER BY username"
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def create_user(username: str, password_hash: str, role: str, service: str) -> dict:
+def create_user(username: str, password_hash: str, role: str, service: str,
+                email: str = None, notify_email: bool = True) -> dict:
     """Crée un nouvel utilisateur. Lève ValueError si le username existe déjà."""
     now = datetime.now().isoformat()
     conn = sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute("""
-            INSERT INTO users (username, password_hash, role, service, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (username, password_hash, role, service or None, now))
+            INSERT INTO users (username, password_hash, role, service, email, notify_email, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (username, password_hash, role, service or None, email or None, 1 if notify_email else 0, now))
         user_id = cur.lastrowid
         conn.commit()
         print(f"[AUTH] Utilisateur créé : {username} (role={role}, service={service})")
         return {
             "id": user_id, "username": username,
-            "role": role, "service": service, "created_at": now
+            "role": role, "service": service,
+            "email": email, "notify_email": notify_email,
+            "created_at": now
         }
     except sqlite3.IntegrityError:
         raise ValueError(f"Le nom d'utilisateur '{username}' est déjà pris")
@@ -185,7 +192,8 @@ def create_user(username: str, password_hash: str, role: str, service: str) -> d
 
 
 def update_user(user_id: int, username: str = None, password_hash: str = None,
-                role: str = None, service: str = None) -> bool:
+                role: str = None, service: str = None,
+                email: str = None, notify_email: bool = None) -> bool:
     """Met à jour les champs non-None d'un utilisateur. Retourne True si trouvé."""
     conn = sqlite3.connect(DB_PATH)
     now = datetime.now().isoformat()
@@ -203,6 +211,12 @@ def update_user(user_id: int, username: str = None, password_hash: str = None,
     if service is not None:
         fields.append("service = ?")
         params.append(service if service != "" else None)
+    if email is not None:
+        fields.append("email = ?")
+        params.append(email if email != "" else None)
+    if notify_email is not None:
+        fields.append("notify_email = ?")
+        params.append(1 if notify_email else 0)
 
     if not fields:
         conn.close()
@@ -219,6 +233,29 @@ def update_user(user_id: int, username: str = None, password_hash: str = None,
     conn.commit()
     conn.close()
     return found
+
+
+def get_alert_recipients(service: str = None) -> list[str]:
+    """
+    Retourne les emails des utilisateurs ayant notify_email=1 et un email renseigné.
+    Si service est fourni, filtre sur les utilisateurs du service OU les superadmins.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    if service:
+        rows = conn.execute("""
+            SELECT email FROM users
+            WHERE notify_email = 1
+              AND email IS NOT NULL AND email != ''
+              AND (service = ? OR role = 'superadmin')
+        """, (service,)).fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT email FROM users
+            WHERE notify_email = 1
+              AND email IS NOT NULL AND email != ''
+        """).fetchall()
+    conn.close()
+    return [r[0] for r in rows]
 
 
 def delete_user(user_id: int) -> bool:
