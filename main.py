@@ -10,7 +10,7 @@ Lancement :
 
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Request, Query, HTTPException, Depends
 from fastapi.responses import FileResponse, JSONResponse
